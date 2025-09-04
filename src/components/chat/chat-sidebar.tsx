@@ -43,7 +43,9 @@ export function ChatSidebar({
   useEffect(() => {
     const loadProfile = async () => {
       if (user?.id) {
+        console.log('Chat sidebar loading profile for user:', user.id)
         const profile = await getUserProfile(user.id)
+        console.log('Chat sidebar profile data:', profile)
         setUserProfile(profile)
       }
     }

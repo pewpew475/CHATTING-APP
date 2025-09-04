@@ -16,7 +16,7 @@ import { toast } from "sonner"
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, MapPin, Save, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { uploadProfileImage, deleteImage } from "@/lib/supabase"
-import { getUserProfile, updateUserProfile, getProfileCompletionPercentage } from "@/lib/profile-storage"
+import { getUserProfile, updateUserProfile, getProfileCompletionPercentageAsync } from "@/lib/profile-storage"
 import { EmailNotificationsDialog } from "@/components/profile/email-notifications-dialog"
 import { PrivacySettingsDialog } from "@/components/profile/privacy-settings-dialog"
 import { TwoFactorAuthDialog } from "@/components/profile/two-factor-auth-dialog"
@@ -62,9 +62,12 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       if (user?.id) {
+        console.log('Loading profile for user:', user.id)
         // Load saved profile data
         const savedProfile = await getUserProfile(user.id)
-        const completion = getProfileCompletionPercentage(user.id)
+        console.log('Saved profile from database:', savedProfile)
+        const completion = await getProfileCompletionPercentageAsync(user.id)
+        console.log('Profile completion percentage:', completion)
         
         setProfileCompletion(completion)
         
@@ -103,8 +106,10 @@ export default function ProfilePage() {
       }
     }
     
-    loadProfile()
-  }, [user])
+    if (isClient && user) {
+      loadProfile()
+    }
+  }, [user, isClient])
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }))
@@ -132,7 +137,7 @@ export default function ProfilePage() {
         setIsEditing(false)
         
         // Update profile completion percentage
-        const newCompletion = getProfileCompletionPercentage(user.id)
+        const newCompletion = await getProfileCompletionPercentageAsync(user.id)
         setProfileCompletion(newCompletion)
       } else {
         toast.error(result.error || "Failed to update profile")

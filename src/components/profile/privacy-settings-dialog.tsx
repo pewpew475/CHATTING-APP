@@ -10,12 +10,13 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
+import { UserSettingsService, type PrivacySettings } from "@/lib/user-settings-service"
 
 interface PrivacySettingsDialogProps {
   children: React.ReactNode
 }
 
-interface PrivacySettings {
+interface LocalPrivacySettings {
   profileVisibility: "everyone" | "friends" | "only_me"
   messagePrivacy: "everyone" | "friends" | "only_me"
   lastSeenVisibility: "everyone" | "friends" | "nobody"
@@ -32,7 +33,7 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [settings, setSettings] = useState<PrivacySettings>({
+  const [settings, setSettings] = useState<LocalPrivacySettings>({
     profileVisibility: "friends",
     messagePrivacy: "friends",
     lastSeenVisibility: "friends",
@@ -46,24 +47,36 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
   })
 
   useEffect(() => {
-    if (user?.id && isOpen) {
-      // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`privacy-settings-${user.id}`)
-      if (savedSettings) {
-        try {
-          setSettings(JSON.parse(savedSettings))
-        } catch (error) {
-          console.error("Failed to parse saved privacy settings:", error)
+    const loadSettings = async () => {
+      if (user?.id && isOpen) {
+        // Load saved settings from database
+        const savedSettings = await UserSettingsService.getPrivacySettings(user.id)
+        if (savedSettings) {
+          // Map database settings to local format
+          setSettings({
+            profileVisibility: savedSettings.profileVisibility === "public" ? "everyone" :
+                             savedSettings.profileVisibility === "friends" ? "friends" : "only_me",
+            messagePrivacy: "friends", // Default value
+            lastSeenVisibility: savedSettings.showLastSeen ? "friends" : "nobody",
+            onlineStatus: savedSettings.showOnlineStatus,
+            readReceipts: true, // Default value
+            profilePicture: "friends", // Default value
+            phoneNumber: "nobody", // Default value
+            email: "nobody", // Default value
+            searchable: savedSettings.allowProfileSearch,
+            allowFriendRequests: savedSettings.allowFriendRequests
+          })
         }
       }
     }
+    loadSettings()
   }, [user?.id, isOpen])
 
-  const handleVisibilityChange = (setting: keyof PrivacySettings, value: string) => {
+  const handleVisibilityChange = (setting: keyof LocalPrivacySettings, value: string) => {
     setSettings(prev => ({ ...prev, [setting]: value }))
   }
 
-  const handleToggleChange = (setting: keyof PrivacySettings, value: boolean) => {
+  const handleToggleChange = (setting: keyof LocalPrivacySettings, value: boolean) => {
     setSettings(prev => ({ ...prev, [setting]: value }))
   }
 
@@ -72,8 +85,21 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
 
     setIsLoading(true)
     try {
-      // Save to localStorage (in a real app, this would be saved to a database)
-      localStorage.setItem(`privacy-settings-${user.id}`, JSON.stringify(settings))
+      // Save to database - map local settings to database format
+      const dbSettings: PrivacySettings = {
+        profileVisibility: settings.profileVisibility === "everyone" ? "public" : 
+                          settings.profileVisibility === "friends" ? "friends" : "private",
+        showOnlineStatus: settings.onlineStatus,
+        allowFriendRequests: settings.allowFriendRequests,
+        showLastSeen: settings.lastSeenVisibility !== "nobody",
+        allowProfileSearch: settings.searchable,
+        shareActivity: true // Default value
+      }
+      
+      const result = await UserSettingsService.savePrivacySettings(user.id, dbSettings)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800))

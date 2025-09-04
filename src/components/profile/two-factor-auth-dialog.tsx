@@ -11,18 +11,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
+import { UserSettingsService, type TwoFactorSettings } from "@/lib/user-settings-service"
 
 interface TwoFactorAuthDialogProps {
   children: React.ReactNode
 }
 
-interface TwoFactorSettings {
-  isEnabled: boolean
-  method: "app" | "sms" | null
-  backupCodes: string[]
-  phoneNumber?: string
-  lastUsed?: string
-}
+// TwoFactorSettings interface is now imported from user-settings-service
 
 export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
   const { user } = useAuth()
@@ -42,17 +37,16 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
   })
 
   useEffect(() => {
-    if (user?.id && isOpen) {
-      // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`2fa-settings-${user.id}`)
-      if (savedSettings) {
-        try {
-          setSettings(JSON.parse(savedSettings))
-        } catch (error) {
-          console.error("Failed to parse saved 2FA settings:", error)
+    const loadSettings = async () => {
+      if (user?.id && isOpen) {
+        // Load saved settings from database
+        const savedSettings = await UserSettingsService.get2FASettings(user.id)
+        if (savedSettings) {
+          setSettings(savedSettings)
         }
       }
     }
+    loadSettings()
   }, [user?.id, isOpen])
 
   const generateBackupCodes = () => {
@@ -108,7 +102,9 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
+      if (user?.id) {
+        await UserSettingsService.save2FASettings(user.id, newSettings)
+      }
       
       setStep("backup-codes")
       toast.success("Two-factor authentication enabled successfully!")
@@ -137,7 +133,9 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
+      if (user?.id) {
+        await UserSettingsService.save2FASettings(user.id, newSettings)
+      }
       
       toast.success("Two-factor authentication disabled")
       setStep("overview")
@@ -161,7 +159,9 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       const newSettings = { ...settings, backupCodes: newBackupCodes }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
+      if (user?.id) {
+        await UserSettingsService.save2FASettings(user.id, newSettings)
+      }
       
       toast.success("New backup codes generated")
     } catch (error) {

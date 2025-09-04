@@ -29,8 +29,7 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
       updatedAt: now
     }
     
-    // Save to localStorage with user-specific key (for offline access)
-    localStorage.setItem(`userProfile_${profileData.userId}`, JSON.stringify(profile))
+    // Profile will be saved to database only
     
     // Save to Supabase database
     if (supabase) {
@@ -59,14 +58,14 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
 
         if (error) {
           console.error('Database error saving profile:', error)
-          // Don't fail completely if database save fails, localStorage is still saved
+          // Database save failed
           if (error.code === 'PGRST205') {
             console.warn('user_profiles table not found. Please run the database setup.')
           }
         }
       } catch (dbError) {
         console.error('Database connection error:', dbError)
-        // Continue with localStorage save even if database fails
+        // Database connection failed
       }
     }
     
@@ -115,8 +114,6 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
             updatedAt: data.updated_at
           }
           
-          // Update localStorage with database data
-          localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile))
           return profile
         }
       } catch (dbError) {
@@ -124,35 +121,19 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
       }
     }
     
-    // Fallback to localStorage
-    const profileData = localStorage.getItem(`userProfile_${userId}`)
-    if (!profileData) return null
-    
-    const profile = JSON.parse(profileData) as UserProfile
-    return profile
+    // No fallback - return null if database is not available
+    return null
   } catch (error) {
     console.error('Error getting user profile:', error)
     return null
   }
 }
 
-// Synchronous version for backward compatibility
+// Synchronous version for backward compatibility - now always returns null
+// Use async getUserProfile for database access
 export const getUserProfileSync = (userId: string): UserProfile | null => {
-  try {
-    // First check localStorage
-    const profileData = localStorage.getItem(`userProfile_${userId}`)
-    if (profileData) {
-      const profile = JSON.parse(profileData) as UserProfile
-      return profile
-    }
-    
-    // If not in localStorage, return null (will trigger profile completion)
-    // The async getUserProfile will handle database lookup when needed
-    return null
-  } catch (error) {
-    console.error('Error getting user profile:', error)
-    return null
-  }
+  // Always return null to force async database lookup
+  return null
 }
 
 // Update specific profile fields
@@ -202,8 +183,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<Omit<Us
 // Delete profile
 export const deleteUserProfile = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    localStorage.removeItem(`userProfile_${userId}`)
-    
     // Delete from Supabase database
     if (supabase) {
       try {
@@ -260,7 +239,32 @@ export const hasCompletedProfileSync = (userId: string): boolean => {
   )
 }
 
-// Get profile completion percentage
+// Get profile completion percentage (async version)
+export const getProfileCompletionPercentageAsync = async (userId: string): Promise<number> => {
+  const profile = await getUserProfile(userId)
+  if (!profile) return 0
+  
+  const fields = [
+    'realName',
+    'username', 
+    'email',
+    'bio',
+    'gender',
+    'mobileNumber',
+    'location',
+    'dateOfBirth',
+    'profileImageUrl'
+  ]
+  
+  const completedFields = fields.filter(field => {
+    const value = profile[field as keyof UserProfile]
+    return value && value.toString().trim() !== ''
+  })
+  
+  return Math.round((completedFields.length / fields.length) * 100)
+}
+
+// Get profile completion percentage (sync version for backward compatibility)
 export const getProfileCompletionPercentage = (userId: string): number => {
   const profile = getUserProfileSync(userId)
   if (!profile) return 0

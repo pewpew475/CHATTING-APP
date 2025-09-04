@@ -9,11 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
+import { UserSettingsService, type EmailNotificationSettings } from "@/lib/user-settings-service"
 
 interface EmailNotificationsDialogProps {
   children: React.ReactNode
 }
 
+// Using EmailNotificationSettings from user-settings-service
 interface NotificationSettings {
   emailNotifications: boolean
   newMessages: boolean
@@ -39,17 +41,25 @@ export function EmailNotificationsDialog({ children }: EmailNotificationsDialogP
   })
 
   useEffect(() => {
-    if (user?.id && isOpen) {
-      // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`email-notifications-${user.id}`)
-      if (savedSettings) {
-        try {
-          setSettings(JSON.parse(savedSettings))
-        } catch (error) {
-          console.error("Failed to parse saved notification settings:", error)
+    const loadSettings = async () => {
+      if (user?.id && isOpen) {
+        // Load saved settings from database
+        const savedSettings = await UserSettingsService.getEmailNotificationSettings(user.id)
+        if (savedSettings) {
+          // Map database settings to component interface
+          setSettings({
+            emailNotifications: true,
+            newMessages: savedSettings.newMessages,
+            friendRequests: savedSettings.friendRequests,
+            groupInvites: false, // Not in database schema
+            securityAlerts: savedSettings.systemUpdates,
+            weeklyDigest: savedSettings.weeklyDigest,
+            productUpdates: savedSettings.marketing
+          })
         }
       }
     }
+    loadSettings()
   }, [user?.id, isOpen])
 
   const handleSettingChange = (setting: keyof NotificationSettings, value: boolean) => {
@@ -83,10 +93,20 @@ export function EmailNotificationsDialog({ children }: EmailNotificationsDialogP
 
     setIsLoading(true)
     try {
-      // Save to localStorage (in a real app, this would be saved to a database)
-      localStorage.setItem(`email-notifications-${user.id}`, JSON.stringify(settings))
+      // Save to database
+      const dbSettings = {
+        newMessages: settings.newMessages,
+        friendRequests: settings.friendRequests,
+        friendAccepted: true, // Default value
+        systemUpdates: settings.securityAlerts,
+        marketing: settings.productUpdates,
+        weeklyDigest: settings.weeklyDigest
+      }
       
-      // Simulate API call
+      const result = await UserSettingsService.saveEmailNotificationSettings(user.id, dbSettings)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
       await new Promise(resolve => setTimeout(resolve, 800))
       
       toast.success("Email notification preferences saved successfully")
