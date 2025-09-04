@@ -16,8 +16,6 @@
     }
   },
   
-  "regions": ["iad1", "sfo1"],
-  
   "env": {
     "NODE_ENV": "production"
   },
