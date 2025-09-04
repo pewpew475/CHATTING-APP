@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -13,7 +13,7 @@ import { FriendsList } from "@/components/friends/friends-list"
 import { SettingsDialog } from "@/components/profile/settings-dialog"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/providers/supabase-auth-provider"
-import { getUserProfileSync } from "@/lib/profile-storage"
+import { getUserProfile } from "@/lib/profile-storage"
 import { type Chat } from "@/lib/messaging-service"
 
 interface ChatSidebarProps {
@@ -35,11 +35,21 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("chats")
+  const [userProfile, setUserProfile] = useState<any>(null)
   const router = useRouter()
   const { user } = useAuth()
   
-  // Get user profile data
-  const userProfile = user?.id ? getUserProfileSync(user.id) : null
+  // Load user profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (user?.id) {
+        const profile = await getUserProfile(user.id)
+        setUserProfile(profile)
+      }
+    }
+    loadProfile()
+  }, [user?.id])
+  
   const displayName = userProfile?.realName || user?.user_metadata?.full_name || user?.user_metadata?.name || "User"
   const username = userProfile?.username || user?.email?.split('@')[0] || "user"
   const email = user?.email || "user@example.com"

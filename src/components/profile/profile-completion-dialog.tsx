@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
 import { updateUserProfile } from "@/lib/profile-storage"
-import { hasCompletedProfileSync } from "@/lib/profile-storage"
+import { hasCompletedProfile } from "@/lib/profile-storage"
 
 interface ProfileData {
   realName: string
@@ -33,21 +33,25 @@ export function ProfileCompletionDialog() {
   })
 
   useEffect(() => {
-    if (user?.id) {
-      // Check if user needs to complete profile
-      const needsProfile = !hasCompletedProfileSync(user.id)
-      
-      if (needsProfile) {
-        // Pre-fill with Supabase user data
-        setProfileData({
-          realName: user.user_metadata?.full_name || user.user_metadata?.name || "",
-          username: user.email?.split('@')[0] || "",
-          email: user.email || "",
-          bio: ""
-        })
-        setIsOpen(true)
+    const checkProfileCompletion = async () => {
+      if (user?.id) {
+        // Check if user needs to complete profile
+        const needsProfile = !(await hasCompletedProfile(user.id))
+        
+        if (needsProfile) {
+          // Pre-fill with Supabase user data
+          setProfileData({
+            realName: user.user_metadata?.full_name || user.user_metadata?.name || "",
+            username: user.email?.split('@')[0] || "",
+            email: user.email || "",
+            bio: ""
+          })
+          setIsOpen(true)
+        }
       }
     }
+    
+    checkProfileCompletion()
   }, [user])
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {

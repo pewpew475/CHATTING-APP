@@ -13,7 +13,7 @@ import { Icons } from "@/components/ui/icons"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { uploadProfileImage } from "@/lib/supabase"
-import { saveUserProfile, hasCompletedProfileSync } from "@/lib/profile-storage"
+import { saveUserProfile, hasCompletedProfile } from "@/lib/profile-storage"
 import { checkUsernameAvailability, generateUsernameSuggestions } from "@/lib/username-checker"
 
 interface UserData {
@@ -56,11 +56,14 @@ export default function SetupProfilePage() {
     
     if (user && !loading) {
       // Check if user has already completed their profile
-      const profileCompleted = hasCompletedProfileSync(user.id)
-      if (profileCompleted) {
-        console.log('Profile already completed, redirecting to main app')
-        router.push("/")
+      const checkProfile = async () => {
+        const profileCompleted = await hasCompletedProfile(user.id)
+        if (profileCompleted) {
+          console.log('Profile already completed, redirecting to main app')
+          router.push("/")
+        }
       }
+      checkProfile()
     }
   }, [user, loading, router])
 

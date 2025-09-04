@@ -139,11 +139,16 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 // Synchronous version for backward compatibility
 export const getUserProfileSync = (userId: string): UserProfile | null => {
   try {
+    // First check localStorage
     const profileData = localStorage.getItem(`userProfile_${userId}`)
-    if (!profileData) return null
+    if (profileData) {
+      const profile = JSON.parse(profileData) as UserProfile
+      return profile
+    }
     
-    const profile = JSON.parse(profileData) as UserProfile
-    return profile
+    // If not in localStorage, return null (will trigger profile completion)
+    // The async getUserProfile will handle database lookup when needed
+    return null
   } catch (error) {
     console.error('Error getting user profile:', error)
     return null
