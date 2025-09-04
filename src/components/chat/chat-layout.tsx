@@ -12,24 +12,9 @@ import { Separator } from "@/components/ui/separator"
 import { Icons } from "@/components/ui/icons"
 import { ChatSidebar } from "./chat-sidebar"
 import { ChatArea } from "./chat-area"
+import { MessagingService, type Chat } from "@/lib/messaging-service"
 
-interface User {
-  id: string
-  username: string
-  realName: string
-  profilePicture?: string
-  isOnline: boolean
-}
-
-interface Chat {
-  id: string
-  participant1: string
-  participant2: string
-  lastMessageAt?: Date
-  lastMessage?: string
-  unreadCount?: number
-  otherUser: User
-}
+// User and Chat interfaces are imported from messaging-service
 
 export function ChatLayout() {
   const { user, loading } = useAuth()
@@ -37,6 +22,8 @@ export function ChatLayout() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [chats, setChats] = useState<Chat[]>([])
+  const [isLoadingChats, setIsLoadingChats] = useState(true)
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -55,6 +42,24 @@ export function ChatLayout() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Load user's chats
+  useEffect(() => {
+    const loadChats = async () => {
+      if (!user?.id) return
+
+      try {
+        const userChats = await MessagingService.getUserChats(user.id)
+        setChats(userChats)
+      } catch (error) {
+        console.error("Error loading chats:", error)
+      } finally {
+        setIsLoadingChats(false)
+      }
+    }
+
+    loadChats()
+  }, [user?.id])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -68,11 +73,8 @@ export function ChatLayout() {
     return null
   }
 
-  // Real chats will be loaded from API/database
-  const mockChats: Chat[] = []
-
   const selectedChatData = selectedChat 
-    ? mockChats.find(chat => chat.id === selectedChat)
+    ? chats.find(chat => chat.id === selectedChat)
     : null
 
   // Mobile view: show either sidebar or chat area, not both
@@ -81,7 +83,7 @@ export function ChatLayout() {
       <div className="flex h-screen bg-background">
         {sidebarOpen ? (
           <ChatSidebar
-            chats={mockChats}
+            chats={chats}
             selectedChat={selectedChat}
             onChatSelect={(chatId) => {
               setSelectedChat(chatId)
@@ -93,7 +95,7 @@ export function ChatLayout() {
           />
         ) : (
           <div className="flex-1 flex flex-col">
-            {selectedChatData ? (
+            {selectedChatData && selectedChatData.otherUser ? (
               <ChatArea 
                 chatId={selectedChatData.id} 
                 otherUser={selectedChatData.otherUser}
@@ -140,17 +142,17 @@ export function ChatLayout() {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <ChatSidebar
-        chats={mockChats}
+        chats={chats}
         selectedChat={selectedChat}
         onChatSelect={setSelectedChat}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
-        currentUserId={user.uid}
+        currentUserId={user.id}
       />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {selectedChatData ? (
+        {selectedChatData && selectedChatData.otherUser ? (
           <ChatArea 
             chatId={selectedChatData.id} 
             otherUser={selectedChatData.otherUser}

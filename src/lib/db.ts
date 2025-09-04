@@ -1,37 +1,6 @@
 // src/lib/db.ts
-// Database abstraction layer for Firebase and Supabase
-import { firestore } from './firebase';
+// Database abstraction layer for Supabase
 import { supabase } from './supabase';
-
-// Dynamic imports for Firebase Firestore functions
-let collection: any, doc: any, getDoc: any, getDocs: any, addDoc: any, updateDoc: any, query: any, where: any, orderBy: any, Timestamp: any;
-
-try {
-  const firestoreFunctions = require('firebase/firestore');
-  collection = firestoreFunctions.collection;
-  doc = firestoreFunctions.doc;
-  getDoc = firestoreFunctions.getDoc;
-  getDocs = firestoreFunctions.getDocs;
-  addDoc = firestoreFunctions.addDoc;
-  updateDoc = firestoreFunctions.updateDoc;
-  query = firestoreFunctions.query;
-  where = firestoreFunctions.where;
-  orderBy = firestoreFunctions.orderBy;
-  Timestamp = firestoreFunctions.Timestamp;
-} catch (error) {
-  console.error('Firebase Firestore functions import error:', error);
-  // Create mock functions
-  collection = () => ({});
-  doc = () => ({});
-  getDoc = () => Promise.resolve({ exists: () => false });
-  getDocs = () => Promise.resolve({ docs: [] });
-  addDoc = () => Promise.reject(new Error('Firebase not available'));
-  updateDoc = () => Promise.reject(new Error('Firebase not available'));
-  query = () => ({});
-  where = () => ({});
-  orderBy = () => ({});
-  Timestamp = { fromDate: (date: Date) => date };
-}
 
 // Types
 interface User {
@@ -71,19 +40,25 @@ export const db = {
   user: {
     async findUnique(options: { where: { id: string } }): Promise<User | null> {
       try {
-        const userDoc = await getDoc(doc(firestore, 'users', options.where.id));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          return {
-            id: userDoc.id,
-            email: data.email,
-            name: data.name,
-            isOnline: data.isOnline || false,
-            lastSeen: data.lastSeen?.toDate() || new Date(),
-            createdAt: data.createdAt?.toDate() || new Date(),
-          };
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', options.where.id)
+          .single();
+
+        if (error) {
+          console.error('Error finding user:', error);
+          return null;
         }
-        return null;
+
+        return {
+          id: data.user_id,
+          email: data.email,
+          name: data.real_name,
+          isOnline: data.is_online || false,
+          lastSeen: data.last_seen ? new Date(data.last_seen) : new Date(),
+          createdAt: data.created_at ? new Date(data.created_at) : new Date(),
+        };
       } catch (error) {
         console.error('Error finding user:', error);
         return null;
@@ -95,17 +70,24 @@ export const db = {
       data: { isOnline?: boolean, lastSeen?: Date } 
     }): Promise<User | null> {
       try {
-        const userRef = doc(firestore, 'users', options.where.id);
         const updateData: any = {};
         
         if (options.data.isOnline !== undefined) {
-          updateData.isOnline = options.data.isOnline;
+          updateData.is_online = options.data.isOnline;
         }
         if (options.data.lastSeen) {
-          updateData.lastSeen = Timestamp.fromDate(options.data.lastSeen);
+          updateData.last_seen = options.data.lastSeen.toISOString();
         }
         
-        await updateDoc(userRef, updateData);
+        const { error } = await supabase
+          .from('user_profiles')
+          .update(updateData)
+          .eq('user_id', options.where.id);
+
+        if (error) {
+          console.error('Error updating user:', error);
+          return null;
+        }
         
         // Return updated user
         return await this.findUnique({ where: { id: options.where.id } });
@@ -123,37 +105,27 @@ export const db = {
       } 
     }): Promise<Chat[]> {
       try {
-        const chats: Chat[] = [];
-        const userId = options.where.OR[0].participant1 || options.where.OR[1].participant2;
+        const userId = (options.where.OR[0] as any).participant1 || (options.where.OR[1] as any).participant2;
         
-        // Query chats where user is participant1
-        const q1 = query(
-          collection(firestore, 'chats'),
-          where('participant1', '==', userId)
-        );
-        const snapshot1 = await getDocs(q1);
-        
-        // Query chats where user is participant2
-        const q2 = query(
-          collection(firestore, 'chats'),
-          where('participant2', '==', userId)
-        );
-        const snapshot2 = await getDocs(q2);
-        
-        // Combine results
-        [...snapshot1.docs, ...snapshot2.docs].forEach(doc => {
-          const data = doc.data();
-          chats.push({
-            id: doc.id,
-            participant1: data.participant1,
-            participant2: data.participant2,
-            lastMessageId: data.lastMessageId,
-            lastMessageAt: data.lastMessageAt?.toDate(),
-            createdAt: data.createdAt?.toDate() || new Date(),
-          });
-        });
-        
-        return chats;
+        // Query chats where user is participant1 or participant2
+        const { data, error } = await supabase
+          .from('chats')
+          .select('*')
+          .or(`participant1.eq.${userId},participant2.eq.${userId}`);
+
+        if (error) {
+          console.error('Error finding chats:', error);
+          return [];
+        }
+
+        return data.map(chat => ({
+          id: chat.id,
+          participant1: chat.participant1,
+          participant2: chat.participant2,
+          lastMessageId: chat.last_message_id,
+          lastMessageAt: chat.last_message_at ? new Date(chat.last_message_at) : undefined,
+          createdAt: chat.created_at ? new Date(chat.created_at) : new Date(),
+        }));
       } catch (error) {
         console.error('Error finding chats:', error);
         return [];
@@ -165,25 +137,29 @@ export const db = {
       include?: { user1: boolean, user2: boolean }
     }): Promise<(Chat & { user1?: User, user2?: User }) | null> {
       try {
-        const chatDoc = await getDoc(doc(firestore, 'chats', options.where.id));
-        if (!chatDoc.exists()) return null;
+        const { data, error } = await supabase
+          .from('chats')
+          .select('*')
+          .eq('id', options.where.id)
+          .single();
+
+        if (error || !data) return null;
         
-        const data = chatDoc.data();
         const chat: Chat & { user1?: User, user2?: User } = {
-          id: chatDoc.id,
+          id: data.id,
           participant1: data.participant1,
           participant2: data.participant2,
-          lastMessageId: data.lastMessageId,
-          lastMessageAt: data.lastMessageAt?.toDate(),
-          createdAt: data.createdAt?.toDate() || new Date(),
+          lastMessageId: data.last_message_id,
+          lastMessageAt: data.last_message_at ? new Date(data.last_message_at) : undefined,
+          createdAt: data.created_at ? new Date(data.created_at) : new Date(),
         };
         
         // Include user data if requested
         if (options.include?.user1) {
-          chat.user1 = await db.user.findUnique({ where: { id: data.participant1 } });
+          chat.user1 = await db.user.findUnique({ where: { id: data.participant1 } }) || undefined;
         }
         if (options.include?.user2) {
-          chat.user2 = await db.user.findUnique({ where: { id: data.participant2 } });
+          chat.user2 = await db.user.findUnique({ where: { id: data.participant2 } }) || undefined;
         }
         
         return chat;
@@ -198,17 +174,24 @@ export const db = {
       data: { lastMessageId?: string, lastMessageAt?: Date } 
     }): Promise<Chat | null> {
       try {
-        const chatRef = doc(firestore, 'chats', options.where.id);
         const updateData: any = {};
         
         if (options.data.lastMessageId) {
-          updateData.lastMessageId = options.data.lastMessageId;
+          updateData.last_message_id = options.data.lastMessageId;
         }
         if (options.data.lastMessageAt) {
-          updateData.lastMessageAt = Timestamp.fromDate(options.data.lastMessageAt);
+          updateData.last_message_at = options.data.lastMessageAt.toISOString();
         }
         
-        await updateDoc(chatRef, updateData);
+        const { error } = await supabase
+          .from('chats')
+          .update(updateData)
+          .eq('id', options.where.id);
+
+        if (error) {
+          console.error('Error updating chat:', error);
+          return null;
+        }
         
         // Return updated chat
         return await this.findUnique({ where: { id: options.where.id } });

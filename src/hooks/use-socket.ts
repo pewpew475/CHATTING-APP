@@ -129,7 +129,7 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
       console.log('Cleaning up socket connection')
       socket.disconnect()
     }
-  }, [user?.uid, autoConnect])
+  }, [user?.id, autoConnect])
 
   const sendMessage = (data: {
     chatId: string

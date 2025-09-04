@@ -9,18 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
-
-interface FriendRequest {
-  id: string
-  requester: {
-    id: string
-    username: string
-    realName: string
-    profilePicture?: string
-    isOnline: boolean
-  }
-  createdAt: Date
-}
+import { FriendService, type FriendRequest } from "@/lib/friend-service"
 
 interface FriendRequestsProps {
   onRequestHandled?: () => void
@@ -33,17 +22,17 @@ export function FriendRequests({ onRequestHandled }: FriendRequestsProps) {
 
   useEffect(() => {
     loadFriendRequests()
-  }, [user?.uid])
+  }, [user?.id])
 
   const loadFriendRequests = async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     setIsLoading(true)
     try {
-      // Real friend requests will be loaded from API/database
-      const mockRequests: FriendRequest[] = []
-      setRequests(mockRequests)
+      const requests = await FriendService.getUserFriendRequests(user.id)
+      setRequests(requests)
     } catch (error) {
+      console.error("Error loading friend requests:", error)
       toast.error("Failed to load friend requests")
     } finally {
       setIsLoading(false)
@@ -52,24 +41,36 @@ export function FriendRequests({ onRequestHandled }: FriendRequestsProps) {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      // Mock accept request - will be replaced with API call
-      setRequests(prev => prev.filter(req => req.id !== requestId))
-      toast.success("Friend request accepted!")
+      const result = await FriendService.acceptFriendRequest(requestId)
       
-      if (onRequestHandled) {
-        onRequestHandled()
+      if (result.success) {
+        setRequests(prev => prev.filter(req => req.id !== requestId))
+        toast.success("Friend request accepted!")
+        
+        if (onRequestHandled) {
+          onRequestHandled()
+        }
+      } else {
+        toast.error(result.error || "Failed to accept friend request")
       }
     } catch (error) {
+      console.error("Error accepting friend request:", error)
       toast.error("Failed to accept friend request")
     }
   }
 
   const handleDeclineRequest = async (requestId: string) => {
     try {
-      // Mock decline request - will be replaced with API call
-      setRequests(prev => prev.filter(req => req.id !== requestId))
-      toast.success("Friend request declined")
+      const result = await FriendService.declineFriendRequest(requestId)
+      
+      if (result.success) {
+        setRequests(prev => prev.filter(req => req.id !== requestId))
+        toast.success("Friend request declined")
+      } else {
+        toast.error(result.error || "Failed to decline friend request")
+      }
     } catch (error) {
+      console.error("Error declining friend request:", error)
       toast.error("Failed to decline friend request")
     }
   }
@@ -127,24 +128,21 @@ export function FriendRequests({ onRequestHandled }: FriendRequestsProps) {
                   >
                     <div className="relative flex-shrink-0">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.requester.profilePicture} />
+                        <AvatarImage src={request.profileImageUrl} />
                         <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
-                          {request.requester.realName
+                          {request.realName
                             .split(" ")
                             .map((n) => n[0])
                             .join("")
                             .toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      {request.requester.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 rounded-full border border-background" />
-                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate">{request.requester.realName}</h4>
+                      <h4 className="font-medium text-sm truncate">{request.realName}</h4>
                       <p className="text-xs text-muted-foreground truncate">
-                        @{request.requester.username} • {formatTimeAgo(request.createdAt)}
+                        @{request.username} • {formatTimeAgo(new Date(request.createdAt))}
                       </p>
                     </div>
                     

@@ -71,7 +71,7 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !user?.uid) return
+    if (!file || !user?.id) return
 
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file")
@@ -85,7 +85,7 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
 
     setIsLoading(true)
     try {
-      const result = await uploadProfileImage(file, user.uid)
+      const result = await uploadProfileImage(file, user.id)
       
       if (result.success) {
         setProfileImage(result.url!)
@@ -145,12 +145,12 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
       e.stopPropagation()
     }
     
-    if (!validateStep2() || !user?.uid) return
+    if (!validateStep2() || !user?.id) return
 
     setIsLoading(true)
     try {
       const result = await saveUserProfile({
-        userId: user.uid,
+        userId: user.id,
         realName: userData.realName,
         username: userData.username,
         email: userData.email,

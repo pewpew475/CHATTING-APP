@@ -14,23 +14,7 @@ import { SettingsDialog } from "@/components/profile/settings-dialog"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/providers/supabase-auth-provider"
 import { getUserProfileSync } from "@/lib/profile-storage"
-
-interface User {
-  id: string
-  username: string
-  realName: string
-  profilePicture?: string
-  isOnline: boolean
-}
-
-interface Chat {
-  id: string
-  participant1: string
-  participant2: string
-  lastMessageAt?: Date
-  otherUser: User
-  unreadCount?: number
-}
+import { type Chat } from "@/lib/messaging-service"
 
 interface ChatSidebarProps {
   chats: Chat[]
@@ -62,28 +46,29 @@ export function ChatSidebar({
   const profileImage = userProfile?.profileImageUrl || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ""
 
   const filteredChats = chats.filter(chat =>
-    chat.otherUser.realName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase())
+    chat.otherUser?.realName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    chat.otherUser?.username.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const formatLastMessageTime = (date?: Date) => {
+  const formatLastMessageTime = (date?: string) => {
     if (!date) return ""
     
     const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    const messageDate = new Date(date)
+    const diffInHours = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60 * 60))
     
     if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString([], { weekday: 'short' })
+      return messageDate.toLocaleDateString([], { weekday: 'short' })
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' })
     }
   }
 
-  const handleFriendSelect = (friend: User) => {
+  const handleFriendSelect = (friend: { id: string }) => {
     // Find or create chat with this friend
-    const existingChat = chats.find(chat => chat.otherUser.id === friend.id)
+    const existingChat = chats.find(chat => chat.otherUser?.id === friend.id)
     if (existingChat) {
       onChatSelect(existingChat.id)
     } else {
@@ -193,28 +178,24 @@ export function ChatSidebar({
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className="relative flex-shrink-0">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={chat.otherUser.profilePicture} />
+                          <AvatarImage src={chat.otherUser?.profileImageUrl} />
                           <AvatarFallback>
-                            {chat.otherUser.realName
-                              .split(" ")
+                            {chat.otherUser?.realName
+                              ?.split(" ")
                               .map((n) => n[0])
                               .join("")
                               .toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        {chat.otherUser.isOnline && (
+                        {chat.otherUser?.isOnline && (
                           <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
                         )}
-                        {chat.unreadCount && chat.unreadCount > 0 && (
-                          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                            {chat.unreadCount}
-                          </Badge>
-                        )}
+                        {/* Unread badge intentionally removed until supported by Chat type */}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <h3 className="font-medium truncate text-sm">
-                            {chat.otherUser.realName}
+                            {chat.otherUser?.realName}
                           </h3>
                           {chat.lastMessageAt && (
                             <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
@@ -223,7 +204,7 @@ export function ChatSidebar({
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground truncate">
-                          @{chat.otherUser.username}
+                          @{chat.otherUser?.username}
                         </p>
                       </div>
                     </div>
@@ -236,7 +217,7 @@ export function ChatSidebar({
           <div className="h-full overflow-hidden">
             <FriendsList 
               onFriendSelect={handleFriendSelect}
-              selectedFriendId={selectedChat ? chats.find(c => c.id === selectedChat)?.otherUser.id : undefined}
+              selectedFriendId={selectedChat ? chats.find(c => c.id === selectedChat)?.otherUser?.id : undefined}
             />
           </div>
         )}

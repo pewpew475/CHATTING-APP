@@ -40,9 +40,8 @@ export default function EmailSignUpPage() {
       // Create account with minimal info, full profile setup will happen on next page
       await signUpWithEmail(
         signUpData.email, 
-        signUpData.password, 
-        "", // realName will be filled in profile setup
-        ""  // username will be filled in profile setup
+        signUpData.password
+        // userData will be filled in profile setup
       )
       toast.success("Account created successfully!")
       // User will be redirected to setup-profile page by the auth flow

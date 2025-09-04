@@ -46,9 +46,9 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
   })
 
   useEffect(() => {
-    if (user?.uid && isOpen) {
+    if (user?.id && isOpen) {
       // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`privacy-settings-${user.uid}`)
+      const savedSettings = localStorage.getItem(`privacy-settings-${user.id}`)
       if (savedSettings) {
         try {
           setSettings(JSON.parse(savedSettings))
@@ -57,7 +57,7 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
         }
       }
     }
-  }, [user?.uid, isOpen])
+  }, [user?.id, isOpen])
 
   const handleVisibilityChange = (setting: keyof PrivacySettings, value: string) => {
     setSettings(prev => ({ ...prev, [setting]: value }))
@@ -68,12 +68,12 @@ export function PrivacySettingsDialog({ children }: PrivacySettingsDialogProps) 
   }
 
   const handleSaveSettings = async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     setIsLoading(true)
     try {
       // Save to localStorage (in a real app, this would be saved to a database)
-      localStorage.setItem(`privacy-settings-${user.uid}`, JSON.stringify(settings))
+      localStorage.setItem(`privacy-settings-${user.id}`, JSON.stringify(settings))
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800))

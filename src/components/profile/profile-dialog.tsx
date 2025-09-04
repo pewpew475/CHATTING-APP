@@ -25,7 +25,7 @@ interface ProfileData {
   username: string
   email: string
   bio?: string
-  gender?: "MALE" | "FEMALE" | "OTHER"
+  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY"
   mobileNumber?: string
 }
 

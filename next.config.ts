@@ -14,10 +14,12 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: false, // Set to true only if you have lint issues
   },
   
+  // External packages for server components
+  serverExternalPackages: ['@supabase/supabase-js'],
+  
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['@/components', '@/lib', '@radix-ui/react-icons'],
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
   
   // Image optimization

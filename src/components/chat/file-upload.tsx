@@ -85,7 +85,7 @@ export function FileUpload({ onFileUpload, disabled = false }: FileUploadProps) 
   }
 
   const uploadFile = async () => {
-    if (!selectedFile || !user?.uid) return
+    if (!selectedFile || !user?.id) return
 
     setIsUploading(true)
     setUploadProgress(0)
@@ -106,7 +106,7 @@ export function FileUpload({ onFileUpload, disabled = false }: FileUploadProps) 
       
       // Use Supabase for images, fallback to API for other files
       if (selectedFile.type.startsWith("image/")) {
-        result = await uploadChatImage(selectedFile.file, user.uid)
+        result = await uploadChatImage(selectedFile.file, user.id)
         
         if (!result.success) {
           throw new Error(result.error || "Upload failed")
@@ -184,11 +184,17 @@ export function FileUpload({ onFileUpload, disabled = false }: FileUploadProps) 
     event.preventDefault()
     const file = event.dataTransfer.files?.[0]
     if (file) {
-      // Simulate file input change
-      const fakeEvent = {
-        target: { files: [file] }
+      // Create a proper file list and call handleFileSelect directly
+      const fileList = new DataTransfer()
+      fileList.items.add(file)
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.files = fileList.files
+      
+      const changeEvent = {
+        target: input
       } as React.ChangeEvent<HTMLInputElement>
-      handleFileSelect(fakeEvent)
+      handleFileSelect(changeEvent)
     }
   }
 

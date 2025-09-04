@@ -39,9 +39,9 @@ export function EmailNotificationsDialog({ children }: EmailNotificationsDialogP
   })
 
   useEffect(() => {
-    if (user?.uid && isOpen) {
+    if (user?.id && isOpen) {
       // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`email-notifications-${user.uid}`)
+      const savedSettings = localStorage.getItem(`email-notifications-${user.id}`)
       if (savedSettings) {
         try {
           setSettings(JSON.parse(savedSettings))
@@ -50,7 +50,7 @@ export function EmailNotificationsDialog({ children }: EmailNotificationsDialogP
         }
       }
     }
-  }, [user?.uid, isOpen])
+  }, [user?.id, isOpen])
 
   const handleSettingChange = (setting: keyof NotificationSettings, value: boolean) => {
     setSettings(prev => {
@@ -79,12 +79,12 @@ export function EmailNotificationsDialog({ children }: EmailNotificationsDialogP
   }
 
   const handleSaveSettings = async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     setIsLoading(true)
     try {
       // Save to localStorage (in a real app, this would be saved to a database)
-      localStorage.setItem(`email-notifications-${user.uid}`, JSON.stringify(settings))
+      localStorage.setItem(`email-notifications-${user.id}`, JSON.stringify(settings))
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800))

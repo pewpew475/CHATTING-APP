@@ -21,7 +21,7 @@ export interface UserProfile {
 export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; error?: string }> => {
   try {
     const now = new Date().toISOString()
-    const existingProfile = getUserProfile(profileData.userId)
+    const existingProfile = await getUserProfile(profileData.userId)
     
     const profile: UserProfile = {
       ...profileData,

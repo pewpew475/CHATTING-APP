@@ -17,7 +17,6 @@ import {
   File,
   Camera,
   Download,
-  Spinner,
   UserPlus,
   UserCheck,
   Users,
@@ -30,7 +29,9 @@ import {
   RefreshCw,
   AlertTriangle,
   Smartphone,
-  Copy
+  Copy,
+  Wifi,
+  Eye
 } from "lucide-react"
 
 export const Icons = {
@@ -64,5 +65,7 @@ export const Icons = {
   refresh: RefreshCw,
   alertTriangle: AlertTriangle,
   smartphone: Smartphone,
-  copy: Copy
+  copy: Copy,
+  wifi: Wifi,
+  eye: Eye
 }

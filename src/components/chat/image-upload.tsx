@@ -20,7 +20,7 @@ export function ImageUpload({ onImageUploaded, disabled, className }: ImageUploa
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !user?.uid) return
+    if (!file || !user?.id) return
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -36,7 +36,7 @@ export function ImageUpload({ onImageUploaded, disabled, className }: ImageUploa
 
     setIsUploading(true)
     try {
-      const result = await uploadChatImage(file, user.uid)
+      const result = await uploadChatImage(file, user.id)
       
       if (result.success) {
         onImageUploaded(result.url!, result.path!)

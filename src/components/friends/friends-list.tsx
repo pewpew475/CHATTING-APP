@@ -12,15 +12,7 @@ import { Icons } from "@/components/ui/icons"
 import { FriendSearch } from "./friend-search"
 import { FriendRequests } from "./friend-requests"
 import { toast } from "sonner"
-
-interface Friend {
-  id: string
-  username: string
-  realName: string
-  profilePicture?: string
-  isOnline: boolean
-  lastSeen?: Date
-}
+import { FriendService, type Friend } from "@/lib/friend-service"
 
 interface FriendsListProps {
   onFriendSelect?: (friend: Friend) => void
@@ -36,17 +28,17 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
 
   useEffect(() => {
     loadFriends()
-  }, [user?.uid])
+  }, [user?.id])
 
   const loadFriends = async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     setIsLoading(true)
     try {
-      // Real friends will be loaded from API/database
-      const mockFriends: Friend[] = []
-      setFriends(mockFriends)
+      const friends = await FriendService.getUserFriends(user.id)
+      setFriends(friends)
     } catch (error) {
+      console.error("Error loading friends:", error)
       toast.error("Failed to load friends")
     } finally {
       setIsLoading(false)
@@ -68,11 +60,13 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
     }
   }
 
-  const formatLastSeen = (date?: Date) => {
+  const formatLastSeen = (date?: string) => {
     if (!date) return ""
     
     const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    const parsed = new Date(date)
+    if (isNaN(parsed.getTime())) return ""
+    const diffInMinutes = Math.floor((now.getTime() - parsed.getTime()) / (1000 * 60))
     
     if (diffInMinutes < 1) return "Just now"
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`
@@ -154,7 +148,7 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <div className="relative flex-shrink-0">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={friend.profilePicture} />
+                            <AvatarImage src={friend.profileImageUrl} />
                             <AvatarFallback className="text-xs">
                               {friend.realName
                                 .split(" ")

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/components/providers/supabase-auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
-import { searchFirebaseUsers, sendFirebaseFriendRequest, type FirebaseUser } from "@/lib/firebase-user-management"
-
+import { FriendService, type SearchResult } from "@/lib/friend-service"
 
 interface FriendSearchProps {
   onFriendAdded?: () => void
@@ -21,7 +20,7 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<FirebaseUser[]>([])
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set())
 
@@ -30,7 +29,7 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
 
     setIsLoading(true)
     try {
-      const results = await searchFirebaseUsers(searchQuery, user.id)
+      const results = await FriendService.searchUsers(searchQuery, user.id)
       setSearchResults(results)
       
       if (results.length === 0) {
@@ -48,14 +47,16 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
     if (!user) return
 
     try {
-      const result = await sendFirebaseFriendRequest(user.id, userId)
+      const result = await FriendService.sendFriendRequest(user.id, userId)
       
       if (result.success) {
         setPendingRequests(prev => new Set([...prev, userId]))
         toast.success("Friend request sent!")
         
-        // Remove from search results
-        setSearchResults(prev => prev.filter(u => u.uid !== userId))
+        // Update search results to show pending status
+        setSearchResults(prev => prev.map(u => 
+          u.id === userId ? { ...u, friendRequestStatus: 'pending' } : u
+        ))
         
         if (onFriendAdded) {
           onFriendAdded()
@@ -134,9 +135,9 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                     >
                       <div className="relative flex-shrink-0">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={user.profileImageUrl || user.photoURL} />
+                          <AvatarImage src={user.profileImageUrl} />
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                            {(user.realName || user.displayName)
+                            {user.realName
                               ?.split(" ")
                               .map((n) => n[0])
                               .join("")
@@ -149,7 +150,7 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-base truncate">{user.realName || user.displayName}</h4>
+                        <h4 className="font-medium text-base truncate">{user.realName}</h4>
                         <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
                         {user.isOnline && (
                           <Badge variant="secondary" className="mt-1 text-xs">
@@ -162,12 +163,17 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                       <Button
                         size="sm"
                         onClick={() => handleSendFriendRequest(user.id)}
-                        disabled={pendingRequests.has(user.id)}
+                        disabled={user.isFriend || user.friendRequestStatus === 'pending' || pendingRequests.has(user.id)}
                         className="flex-shrink-0"
                       >
-                        {pendingRequests.has(user.id) ? (
+                        {user.isFriend ? (
                           <>
                             <Icons.check className="h-4 w-4 mr-1" />
+                            Friends
+                          </>
+                        ) : user.friendRequestStatus === 'pending' || pendingRequests.has(user.id) ? (
+                          <>
+                            <Icons.refresh className="h-4 w-4 mr-1" />
                             Requested
                           </>
                         ) : (

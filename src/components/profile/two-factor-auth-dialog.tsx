@@ -42,9 +42,9 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
   })
 
   useEffect(() => {
-    if (user?.uid && isOpen) {
+    if (user?.id && isOpen) {
       // Load saved settings from localStorage
-      const savedSettings = localStorage.getItem(`2fa-settings-${user.uid}`)
+      const savedSettings = localStorage.getItem(`2fa-settings-${user.id}`)
       if (savedSettings) {
         try {
           setSettings(JSON.parse(savedSettings))
@@ -53,10 +53,10 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
         }
       }
     }
-  }, [user?.uid, isOpen])
+  }, [user?.id, isOpen])
 
   const generateBackupCodes = () => {
-    const codes = []
+    const codes: string[] = []
     for (let i = 0; i < 10; i++) {
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
       codes.push(code)
@@ -108,7 +108,7 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.uid}`, JSON.stringify(newSettings))
+      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
       
       setStep("backup-codes")
       toast.success("Two-factor authentication enabled successfully!")
@@ -137,7 +137,7 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.uid}`, JSON.stringify(newSettings))
+      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
       
       toast.success("Two-factor authentication disabled")
       setStep("overview")
@@ -161,7 +161,7 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
       const newSettings = { ...settings, backupCodes: newBackupCodes }
       
       setSettings(newSettings)
-      localStorage.setItem(`2fa-settings-${user?.uid}`, JSON.stringify(newSettings))
+      localStorage.setItem(`2fa-settings-${user?.id}`, JSON.stringify(newSettings))
       
       toast.success("New backup codes generated")
     } catch (error) {
@@ -386,7 +386,7 @@ export function TwoFactorAuthDialog({ children }: TwoFactorAuthDialogProps) {
               toast.success("Verification code sent!")
               setVerificationCode("")
             } : handleVerifyCode}
-            disabled={isLoading || !phoneNumber || (verificationCode && verificationCode.length !== 6)}
+            disabled={isLoading || !phoneNumber || (!!verificationCode && verificationCode.length !== 6)}
             className="flex-1"
           >
             {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}

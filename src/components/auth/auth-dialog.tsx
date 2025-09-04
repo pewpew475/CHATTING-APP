@@ -94,8 +94,10 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
       await signUpWithEmail(
         signUpData.email, 
         signUpData.password, 
-        signUpData.realName, 
-        signUpData.username
+        {
+          realName: signUpData.realName,
+          username: signUpData.username
+        }
       )
       onClose()
       toast.success("Account created successfully!")

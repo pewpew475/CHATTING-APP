@@ -9,22 +9,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Icons } from "@/components/ui/icons"
+import { toast } from "sonner"
 import { FileUpload } from "./file-upload"
 import { FileMessage } from "./file-message"
 import { TypingIndicator } from "./typing-indicator"
+import { MessagingService, type Message, type Chat } from "@/lib/messaging-service"
 
-interface Message {
-  id: string
-  content?: string
-  senderId: string
-  createdAt: Date
-  type: "TEXT" | "IMAGE" | "VIDEO" | "FILE"
-  fileUrl?: string
-  fileName?: string
-  fileSize?: number
-  fileType?: string
-  isRead?: boolean
-}
+// Message interface is imported from messaging-service
 
 interface ChatAreaProps {
   chatId: string
@@ -32,7 +23,7 @@ interface ChatAreaProps {
     id: string
     username: string
     realName: string
-    profilePicture?: string
+    profileImageUrl?: string
     isOnline: boolean
   }
 }
@@ -43,14 +34,13 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout>()
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [showFileUpload, setShowFileUpload] = useState(false)
   
   const { 
     isConnected, 
     sendMessage, 
     sendTyping, 
-    markMessageAsRead,
     isUserOnline,
     isUserTyping 
   } = useSocket()
@@ -59,16 +49,28 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
   useEffect(() => {
     const loadMessages = async () => {
       try {
-        // Real messages will be loaded from API/database
-        const mockMessages: Message[] = []
-        setMessages(mockMessages)
+        const messages = await MessagingService.getChatMessages(chatId)
+        setMessages(messages)
       } catch (error) {
         console.error("Failed to load messages:", error)
       }
     }
 
     loadMessages()
-  }, [chatId, user?.uid, otherUser.id])
+  }, [chatId, user?.id, otherUser.id])
+
+  // Subscribe to real-time messages
+  useEffect(() => {
+    if (!chatId) return
+
+    const subscription = MessagingService.subscribeToChatMessages(chatId, (newMessage) => {
+      setMessages(prev => [...prev, newMessage])
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [chatId])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -83,9 +85,9 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const messageId = entry.target.getAttribute('data-message-id')
-            if (messageId && user?.uid) {
+            if (messageId && user?.id) {
               // Mark message as read
-              markMessageAsRead(messageId)
+              MessagingService.markMessageAsRead(messageId)
               
               // Update local state
               setMessages(prev => prev.map(msg => 
@@ -105,69 +107,67 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     return () => {
       messageElements.forEach(el => observer.unobserve(el))
     }
-  }, [messages, user?.uid, markMessageAsRead])
+  }, [messages, user?.id])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if ((!message.trim() && !showFileUpload) || !user) return
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      content: message.trim() || undefined,
-      senderId: user.id,
-      createdAt: new Date(),
-      type: message.trim() ? "TEXT" : "FILE"
+    try {
+      const result = await MessagingService.sendMessage(
+        chatId,
+        user.id,
+        otherUser.id,
+        message.trim(),
+        "TEXT"
+      )
+
+      if (result.success && result.message) {
+        setMessages(prev => [...prev, result.message!])
+        setMessage("")
+        setShowFileUpload(false)
+      } else {
+        toast.error(result.error || "Failed to send message")
+      }
+    } catch (error) {
+      console.error("Error sending message:", error)
+      toast.error("Failed to send message")
     }
-
-    // Add message to local state immediately (optimistic update)
-    setMessages(prev => [...prev, newMessage])
-    setMessage("")
-    setShowFileUpload(false)
-    setIsLoading(true)
-
-    // Send message via socket
-    sendMessage({
-      chatId,
-      content: message.trim() || "",
-      type: message.trim() ? "TEXT" : "FILE"
-    })
-
-    // Simulate API call completion
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
   }
 
-  const handleFileUpload = (fileData: {
+  const handleFileUpload = async (fileData: {
     fileUrl: string
     fileName: string
     fileSize: number
     fileType: string
   }) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      senderId: user?.uid || "",
-      createdAt: new Date(),
-      type: fileData.fileType.startsWith("image/") ? "IMAGE" : 
-            fileData.fileType.startsWith("video/") ? "VIDEO" : "FILE",
-      fileUrl: fileData.fileUrl,
-      fileName: fileData.fileName,
-      fileSize: fileData.fileSize,
-      fileType: fileData.fileType
+    if (!user) return
+
+    try {
+      const result = await MessagingService.sendMessage(
+        chatId,
+        user.id,
+        otherUser.id,
+        undefined,
+        fileData.fileType.startsWith("image/") ? "IMAGE" : 
+        fileData.fileType.startsWith("video/") ? "VIDEO" : "FILE",
+        fileData.fileUrl,
+        fileData.fileName,
+        fileData.fileSize,
+        fileData.fileType
+      )
+
+      if (result.success && result.message) {
+        setMessages(prev => [...prev, result.message!])
+        setShowFileUpload(false)
+      } else {
+        toast.error(result.error || "Failed to send file")
+      }
+    } catch (error) {
+      console.error("Error sending file:", error)
+      toast.error("Failed to send file")
     }
 
-    setMessages(prev => [...prev, newMessage])
-    setShowFileUpload(false)
-
-    // Send file message via socket
-    sendMessage({
-      chatId,
-      content: "",
-      type: newMessage.type,
-      fileUrl: fileData.fileUrl,
-      fileName: fileData.fileName,
-      fileSize: fileData.fileSize
-    })
   }
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,8 +187,8 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     }, 1000)
   }
 
-  const formatMessageTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const formatMessageTime = (date: string) => {
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   const isOtherUserTyping = isUserTyping(otherUser.id, chatId)
@@ -201,7 +201,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
           <div className="flex items-center space-x-3">
             <div className="relative">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={otherUser.profilePicture} />
+                <AvatarImage src={otherUser.profileImageUrl} />
                 <AvatarFallback>
                   {otherUser.realName
                     .split(" ")
@@ -240,13 +240,13 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
               key={msg.id}
               data-message-id={msg.id}
               className={`flex ${
-                msg.senderId === user?.uid ? "justify-end" : "justify-start"
+                msg.senderId === user?.id ? "justify-end" : "justify-start"
               }`}
             >
               {msg.type === "TEXT" && msg.content ? (
                 <div
                   className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    msg.senderId === user?.uid
+                    msg.senderId === user?.id
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}
@@ -255,14 +255,14 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
                   <div className="flex items-center justify-between mt-1">
                     <p
                       className={`text-xs ${
-                        msg.senderId === user?.uid
+                        msg.senderId === user?.id
                           ? "text-primary-foreground/70"
                           : "text-muted-foreground"
                       }`}
                     >
                       {formatMessageTime(msg.createdAt)}
                     </p>
-                    {msg.senderId === user?.uid && (
+                    {msg.senderId === user?.id && (
                       <span className="text-xs ml-2">
                         {msg.isRead ? "✓✓" : "✓"}
                       </span>
@@ -275,7 +275,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
                   fileName={msg.fileName || ""}
                   fileSize={msg.fileSize || 0}
                   fileType={msg.fileType || ""}
-                  isOwnMessage={msg.senderId === user?.uid}
+                  isOwnMessage={msg.senderId === user?.id}
                 />
               )}
             </div>
