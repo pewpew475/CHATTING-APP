@@ -142,19 +142,25 @@ export class FriendService {
   // Send a friend request
   static async sendFriendRequest(fromUserId: string, toUserId: string, message?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
+      console.log('Sending friend request from:', fromUserId, 'to:', toUserId)
+      
+      const { data, error } = await supabase
         .from('friend_requests')
         .insert({
           from_user_id: fromUserId,
           to_user_id: toUserId,
-          message: message || null
+          message: message || null,
+          status: 'pending',
+          created_at: new Date().toISOString()
         })
+        .select()
 
       if (error) {
         console.error('Error sending friend request:', error)
         return { success: false, error: error.message }
       }
 
+      console.log('Friend request sent successfully:', data)
       return { success: true }
     } catch (error) {
       console.error('Error sending friend request:', error)
@@ -165,19 +171,55 @@ export class FriendService {
   // Accept a friend request
   static async acceptFriendRequest(requestId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await supabase.rpc('accept_friend_request', {
-        request_id: requestId
-      })
+      console.log('Accepting friend request:', requestId)
+      
+      // First get the request details
+      const { data: request, error: requestError } = await supabase
+        .from('friend_requests')
+        .select('from_user_id, to_user_id')
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .single()
 
-      if (error) {
-        console.error('Error accepting friend request:', error)
-        return { success: false, error: error.message }
+      if (requestError || !request) {
+        console.error('Error getting friend request:', requestError)
+        return { success: false, error: 'Friend request not found' }
       }
 
-      if (!data) {
-        return { success: false, error: 'Failed to accept friend request' }
+      // Create friendship in both directions
+      const { error: friend1Error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: request.from_user_id,
+          friend_id: request.to_user_id,
+          created_at: new Date().toISOString()
+        })
+
+      const { error: friend2Error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: request.to_user_id,
+          friend_id: request.from_user_id,
+          created_at: new Date().toISOString()
+        })
+
+      if (friend1Error || friend2Error) {
+        console.error('Error creating friendship:', friend1Error || friend2Error)
+        return { success: false, error: 'Failed to create friendship' }
       }
 
+      // Update request status to accepted
+      const { error: updateError } = await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted' })
+        .eq('id', requestId)
+
+      if (updateError) {
+        console.error('Error updating request status:', updateError)
+        // Don't fail the whole operation if status update fails
+      }
+
+      console.log('Friend request accepted successfully')
       return { success: true }
     } catch (error) {
       console.error('Error accepting friend request:', error)
@@ -227,16 +269,49 @@ export class FriendService {
   // Get user's friend requests
   static async getUserFriendRequests(userId: string): Promise<FriendRequest[]> {
     try {
-      const { data, error } = await supabase.rpc('get_user_friend_requests', {
-        user_uuid: userId
-      })
+      console.log('Loading friend requests for user:', userId)
+      
+      // Get incoming friend requests
+      const { data: incomingRequests, error: incomingError } = await supabase
+        .from('friend_requests')
+        .select(`
+          id,
+          from_user_id,
+          to_user_id,
+          message,
+          created_at,
+          status,
+          from_user:user_profiles!friend_requests_from_user_id_fkey(
+            user_id,
+            username,
+            real_name,
+            profile_image_url
+          )
+        `)
+        .eq('to_user_id', userId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error getting friend requests:', error)
+      if (incomingError) {
+        console.error('Error getting incoming friend requests:', incomingError)
         return []
       }
 
-      return data || []
+      console.log('Incoming friend requests:', incomingRequests)
+
+      const requests: FriendRequest[] = (incomingRequests || []).map((req: any) => ({
+        id: req.id,
+        fromUserId: req.from_user_id,
+        toUserId: req.to_user_id,
+        username: req.from_user?.username || 'Unknown',
+        realName: req.from_user?.real_name || 'Unknown User',
+        profileImageUrl: req.from_user?.profile_image_url,
+        message: req.message,
+        createdAt: req.created_at,
+        isIncoming: true
+      }))
+
+      return requests
     } catch (error) {
       console.error('Error getting friend requests:', error)
       return []

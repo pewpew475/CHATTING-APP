@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SupabaseAuthProvider } from "@/components/providers/supabase-auth-provider";
-import { ProfileCompletionDialog } from "@/components/profile/profile-completion-dialog";
+;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +46,6 @@ export default function RootLayout({
       >
         <SupabaseAuthProvider>
           {children}
-          <ProfileCompletionDialog />
           <Toaster />
         </SupabaseAuthProvider>
       </body>
