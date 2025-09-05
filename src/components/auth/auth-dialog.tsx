@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Icons } from "@/components/ui/icons"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { toast } from "sonner"
 
 interface AuthDialogProps {
@@ -17,7 +17,7 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialogProps) {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
+  const { signInWithEmail, signUpWithEmail } = useAuth()
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [isLoading, setIsLoading] = useState(false)
   // Removed legacy post-Google basic info form; profile completion handled elsewhere
@@ -37,27 +37,6 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
     username: ""
   })
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(true)
-      
-      // Show redirect message
-      toast.success("Redirecting to Google for authentication...")
-      toast.info("You'll be redirected back after signing in")
-      
-      const result = await signInWithGoogle()
-      
-      // Since we always use redirect now, result will always be undefined
-      // The redirect will handle the authentication
-      // Don't close the dialog or set loading to false, as we're redirecting
-      return
-      
-    } catch (error: any) {
-      console.error("Google auth error:", error)
-      toast.error("Authentication failed. Please try again.")
-      setIsLoading(false)
-    }
-  }
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -158,37 +137,6 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* Social Auth Buttons */}
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleGoogleAuth}
-              disabled={isLoading}
-            >
-              <Icons.google className="mr-2 h-4 w-4" />
-              Continue with Google
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={isLoading}
-            >
-              <Icons.mail className="mr-2 h-4 w-4" />
-              Continue with Microsoft
-            </Button>
-          </div>
-          
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-          
           {/* Email/Password Forms */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "signin" | "signup")}>
             <TabsList className="grid w-full grid-cols-2">

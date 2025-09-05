@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,7 @@ import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, MapPin, Save, X } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { uploadProfileImage, deleteImage, testStorageAccess } from "@/lib/supabase"
+import { getRandomAvatar } from "@/components/providers/firebase-auth-provider"
 import { getUserProfile, updateUserProfile, getProfileCompletionPercentageAsync } from "@/lib/profile-storage"
 import { EmailNotificationsDialog } from "@/components/profile/email-notifications-dialog"
 import { PrivacySettingsDialog } from "@/components/profile/privacy-settings-dialog"
@@ -64,9 +64,7 @@ export default function ProfilePage() {
       if (user?.id) {
         console.log('Loading profile for user:', user.id)
         
-        // Test storage access first
-        const storageTest = await testStorageAccess()
-        console.log('Storage access test result:', storageTest)
+        // Generate random avatar if none exists
         
         // Load saved profile data
         const savedProfile = await getUserProfile(user.id)
@@ -86,15 +84,15 @@ export default function ProfilePage() {
             mobileNumber: savedProfile.mobileNumber || "",
             location: savedProfile.location || "",
             website: "",
-            joinedDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : "Recently"
+            joinedDate: user.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : "Recently"
           }
           setProfileData(profileData)
           setOriginalProfileData(profileData)
-          setCurrentProfileImage(savedProfile.profileImageUrl || user.user_metadata?.avatar_url || user.user_metadata?.picture)
+          setCurrentProfileImage(savedProfile.profileImageUrl || getRandomAvatar())
         } else {
-          // Use Supabase user data as fallback
+          // Use Firebase user data as fallback
           const fallbackData = {
-            realName: user.user_metadata?.full_name || user.user_metadata?.name || "Anonymous User",
+            realName: user.displayName || "Anonymous User",
             username: user.email?.split('@')[0] || "user",
             email: user.email || "",
             bio: "",
@@ -102,11 +100,11 @@ export default function ProfilePage() {
             mobileNumber: "",
             location: "",
             website: "",
-            joinedDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : "Recently"
+            joinedDate: user.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : "Recently"
           }
           setProfileData(fallbackData)
           setOriginalProfileData(fallbackData)
-          setCurrentProfileImage(user.user_metadata?.avatar_url || user.user_metadata?.picture)
+          setCurrentProfileImage(getRandomAvatar())
         }
       }
     }
@@ -162,41 +160,14 @@ export default function ProfilePage() {
     setIsEditing(false)
   }
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !user?.id) return
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file")
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error("Image size must be less than 5MB")
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const result = await uploadProfileImage(file, user.id)
-      
-      if (result.success) {
-        setCurrentProfileImage(result.url!)
-        toast.success("Avatar updated successfully")
-        
-        // Auto-save the profile image
-        await updateUserProfile(user.id, {
-          profileImageUrl: result.url!,
-          profileImagePath: result.path!
-        })
-      } else {
-        toast.error(result.error || "Failed to upload avatar")
-      }
-    } catch (error) {
-      toast.error("Failed to upload avatar")
-      console.error("Avatar upload error:", error)
-    } finally {
-      setIsLoading(false)
+  const handleGenerateNewAvatar = () => {
+    const newAvatar = getRandomAvatar()
+    setCurrentProfileImage(newAvatar)
+    if (user?.id) {
+      updateUserProfile(user.id, {
+        profileImageUrl: newAvatar
+      })
+      toast.success("New avatar generated!")
     }
   }
 
@@ -265,7 +236,7 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center space-y-4">
                   <div className="relative">
                     <Avatar className="h-32 w-32">
-                      <AvatarImage src={currentProfileImage || user?.user_metadata?.avatar_url || user?.user_metadata?.picture} />
+                      <AvatarImage src={currentProfileImage || getRandomAvatar()} />
                       <AvatarFallback className="text-2xl">
                         {profileData.realName
                           .split(" ")
@@ -274,22 +245,14 @@ export default function ProfilePage() {
                           .toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    {isEditing && (
-                      <label
-                        htmlFor="avatar-upload"
-                        className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
-                      >
-                        <Icons.camera className="h-4 w-4" />
-                      </label>
-                    )}
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      className="hidden"
+                    <button
+                      type="button"
+                      onClick={handleGenerateNewAvatar}
+                      className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
                       disabled={isLoading}
-                    />
+                    >
+                      <Icons.refresh className="h-4 w-4" />
+                    </button>
                   </div>
                   
                   <div className="text-center space-y-2">

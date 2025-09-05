@@ -1,5 +1,17 @@
 // Profile storage utilities for managing user profile data
-import { supabase } from './supabase'
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  getDocs,
+  updateDoc,
+  serverTimestamp
+} from 'firebase/firestore'
+import { db } from './firebase'
 
 export interface UserProfile {
   userId: string
@@ -18,7 +30,7 @@ export interface UserProfile {
   updatedAt: string
 }
 
-// Save profile to localStorage (for demo) and to database
+// Save profile to Firebase Firestore
 export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; error?: string }> => {
   try {
     const now = new Date().toISOString()
@@ -41,43 +53,43 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
       updatedAt: now
     }
     
-    // Profile will be saved to database only
-    
-    // Save to Supabase database
-    if (supabase) {
-      try {
-        const dbProfile: Record<string, any> = {
-          user_id: merged.userId,
-          username: merged.username,
-          real_name: merged.realName,
-          email: merged.email,
-          updated_at: merged.updatedAt
-        }
-        if (merged.bio !== undefined) dbProfile.bio = merged.bio
-        if (merged.gender !== undefined) dbProfile.gender = merged.gender
-        if (merged.mobileNumber !== undefined) dbProfile.mobile_number = merged.mobileNumber
-        if (merged.location !== undefined) dbProfile.location = merged.location
-        if (merged.dateOfBirth !== undefined) dbProfile.date_of_birth = merged.dateOfBirth
-        if (merged.profileImageUrl !== undefined) dbProfile.profile_image_url = merged.profileImageUrl
-        if (merged.profileImagePath !== undefined) dbProfile.profile_image_path = merged.profileImagePath
+    // Save to Firebase Firestore
+    try {
+      const userRef = doc(db, 'users', merged.userId)
+      const dbProfile: Record<string, any> = {
+        userId: merged.userId,
+        username: merged.username,
+        realName: merged.realName,
+        email: merged.email,
+        updatedAt: serverTimestamp()
+      }
+      
+      if (merged.bio !== undefined) dbProfile.bio = merged.bio
+      if (merged.gender !== undefined) dbProfile.gender = merged.gender
+      if (merged.mobileNumber !== undefined) dbProfile.mobileNumber = merged.mobileNumber
+      if (merged.location !== undefined) dbProfile.location = merged.location
+      if (merged.dateOfBirth !== undefined) dbProfile.dateOfBirth = merged.dateOfBirth
+      if (merged.profileImageUrl !== undefined) dbProfile.profileImageUrl = merged.profileImageUrl
+      if (merged.profileImagePath !== undefined) dbProfile.profileImagePath = merged.profileImagePath
 
-        const { error } = await supabase
-          .from('user_profiles')
-          .upsert(dbProfile, { 
-            onConflict: 'user_id',
-            ignoreDuplicates: false 
-          })
-
-        if (error) {
-          console.error('Database error saving profile:', error)
-          // Database save failed
-          if (error.code === 'PGRST205') {
-            console.warn('user_profiles table not found. Please run the database setup.')
-          }
+      // Set the document (creates if doesn't exist, updates if exists)
+      await setDoc(userRef, dbProfile, { merge: true })
+      
+      console.log('Profile saved successfully to Firebase')
+    } catch (dbError) {
+      console.error('Firebase database error:', dbError)
+      
+      // If it's a network error, provide a more helpful message
+      if (dbError instanceof Error && dbError.message.includes('Failed to get document because the client is offline')) {
+        return { 
+          success: false, 
+          error: 'Unable to connect to database. Please check your internet connection.' 
         }
-      } catch (dbError) {
-        console.error('Database connection error:', dbError)
-        // Database connection failed
+      }
+      
+      return { 
+        success: false, 
+        error: 'Database connection failed' 
       }
     }
     
@@ -91,56 +103,52 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
   }
 }
 
-// Get profile from localStorage and database
+// Get profile from Firebase Firestore
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     console.log('getUserProfile: Fetching profile for user:', userId)
     
-    // First try to get from database
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle()
+    // Get from Firebase Firestore
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId))
 
-        if (error) {
-          console.error('Database error getting profile:', error)
-          if (error.code === 'PGRST205') {
-            console.warn('user_profiles table not found. Please run the database setup.')
-          }
-          return null
-        } else if (data) {
-          console.log('getUserProfile: Found profile in database:', data.username, data.real_name)
-          // Convert database format to UserProfile format
-          const profile: UserProfile = {
-            userId: data.user_id,
-            realName: data.real_name,
-            username: data.username,
-            email: data.email,
-            bio: data.bio,
-            gender: data.gender,
-            mobileNumber: data.mobile_number,
-            location: data.location,
-            dateOfBirth: data.date_of_birth,
-            profileImageUrl: data.profile_image_url,
-            profileImagePath: data.profile_image_path,
-            createdAt: data.created_at,
-            updatedAt: data.updated_at
-          }
-          
-          return profile
-        } else {
-          console.log('getUserProfile: No profile found in database for user:', userId)
-        }
-      } catch (dbError) {
-        console.error('Database connection error:', dbError)
+      if (!userDoc.exists()) {
+        console.log('getUserProfile: No profile found in database for user:', userId)
+        return null
       }
+
+      const data = userDoc.data()
+      console.log('getUserProfile: Found profile in database:', data.username, data.realName)
+      
+      // Convert database format to UserProfile format
+      const profile: UserProfile = {
+        userId: data.userId,
+        realName: data.realName,
+        username: data.username,
+        email: data.email,
+        bio: data.bio,
+        gender: data.gender,
+        mobileNumber: data.mobileNumber,
+        location: data.location,
+        dateOfBirth: data.dateOfBirth,
+        profileImageUrl: data.profileImageUrl,
+        profileImagePath: data.profileImagePath,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+      }
+      
+      return profile
+    } catch (dbError) {
+      console.error('Firebase database error:', dbError)
+      
+      // If it's a network error, return null but don't crash the app
+      if (dbError instanceof Error && dbError.message.includes('Failed to get document because the client is offline')) {
+        console.log('getUserProfile: Client is offline, returning null')
+        return null
+      }
+      
+      return null
     }
-    
-    // No fallback - return null if database is not available
-    return null
   } catch (error) {
     console.error('Error getting user profile:', error)
     return null
@@ -203,85 +211,76 @@ export const deleteUserProfile = async (userId: string): Promise<{ success: bool
   try {
     console.log('Deleting all data for user:', userId)
     
-    if (supabase) {
-      try {
-        // First mark user as deleted before deleting profile
-        const { error: markDeletedError } = await supabase
-          .from('user_profiles')
-          .update({ isDeleted: true })
-          .eq('user_id', userId)
+    try {
+      // Delete user profile
+      await deleteDoc(doc(db, 'users', userId))
 
-        if (markDeletedError) {
-          console.error('Error marking user as deleted:', markDeletedError)
-        }
+      // Delete friend requests (both sent and received)
+      const requestsQuery1 = query(collection(db, 'friendRequests'), where('fromUserId', '==', userId))
+      const requestsQuery2 = query(collection(db, 'friendRequests'), where('toUserId', '==', userId))
+      
+      const [requests1, requests2] = await Promise.all([
+        getDocs(requestsQuery1),
+        getDocs(requestsQuery2)
+      ])
+      
+      const deleteRequests = [
+        ...requests1.docs.map(doc => deleteDoc(doc.ref)),
+        ...requests2.docs.map(doc => deleteDoc(doc.ref))
+      ]
+      await Promise.all(deleteRequests)
 
-        // Delete user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .delete()
-          .eq('user_id', userId)
+      // Delete friendships
+      const friendsQuery1 = query(collection(db, 'friendships'), where('userId', '==', userId))
+      const friendsQuery2 = query(collection(db, 'friendships'), where('friendId', '==', userId))
+      
+      const [friends1, friends2] = await Promise.all([
+        getDocs(friendsQuery1),
+        getDocs(friendsQuery2)
+      ])
+      
+      const deleteFriends = [
+        ...friends1.docs.map(doc => deleteDoc(doc.ref)),
+        ...friends2.docs.map(doc => deleteDoc(doc.ref))
+      ]
+      await Promise.all(deleteFriends)
 
-        if (profileError) {
-          console.error('Error deleting profile:', profileError)
-        }
+      // Delete messages
+      const messagesQuery1 = query(collection(db, 'messages'), where('senderId', '==', userId))
+      const messagesQuery2 = query(collection(db, 'messages'), where('receiverId', '==', userId))
+      
+      const [messages1, messages2] = await Promise.all([
+        getDocs(messagesQuery1),
+        getDocs(messagesQuery2)
+      ])
+      
+      const deleteMessages = [
+        ...messages1.docs.map(doc => deleteDoc(doc.ref)),
+        ...messages2.docs.map(doc => deleteDoc(doc.ref))
+      ]
+      await Promise.all(deleteMessages)
 
-        // Delete friend requests (both sent and received)
-        const { error: requestsError } = await supabase
-          .from('friend_requests')
-          .delete()
-          .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
+      // Delete chats
+      const chatsQuery1 = query(collection(db, 'chats'), where('participant1', '==', userId))
+      const chatsQuery2 = query(collection(db, 'chats'), where('participant2', '==', userId))
+      
+      const [chats1, chats2] = await Promise.all([
+        getDocs(chatsQuery1),
+        getDocs(chatsQuery2)
+      ])
+      
+      const deleteChats = [
+        ...chats1.docs.map(doc => deleteDoc(doc.ref)),
+        ...chats2.docs.map(doc => deleteDoc(doc.ref))
+      ]
+      await Promise.all(deleteChats)
 
-        if (requestsError) {
-          console.error('Error deleting friend requests:', requestsError)
-        }
-
-        // Delete friendships
-        const { error: friendsError } = await supabase
-          .from('friends')
-          .delete()
-          .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
-
-        if (friendsError) {
-          console.error('Error deleting friendships:', friendsError)
-        }
-
-        // Delete messages
-        const { error: messagesError } = await supabase
-          .from('messages')
-          .delete()
-          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-
-        if (messagesError) {
-          console.error('Error deleting messages:', messagesError)
-        }
-
-        // Delete chats
-        const { error: chatsError } = await supabase
-          .from('chats')
-          .delete()
-          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-
-        if (chatsError) {
-          console.error('Error deleting chats:', chatsError)
-        }
-
-        // Delete online status
-        const { error: statusError } = await supabase
-          .from('user_online_status')
-          .delete()
-          .eq('user_id', userId)
-
-        if (statusError) {
-          console.error('Error deleting online status:', statusError)
-        }
-
-        console.log('All user data deleted successfully')
-      } catch (dbError) {
-        console.error('Database connection error:', dbError)
-        return { 
-          success: false, 
-          error: 'Database connection failed' 
-        }
+      console.log('All user data deleted successfully')
+    } catch (dbError) {
+      console.error('Firebase database error:', dbError)
+      return { 
+        success: false, 
+        error: 'Database connection failed' 
       }
     }
     

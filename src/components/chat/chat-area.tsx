@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { useSocket } from "@/hooks/use-socket"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,10 +10,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
-import { FileUpload } from "./file-upload"
-import { FileMessage } from "./file-message"
 import { TypingIndicator } from "./typing-indicator"
+import { EmojiPickerComponent } from "./emoji-picker"
 import { MessagingService, type Message, type Chat } from "@/lib/messaging-service"
+import { getRandomAvatar } from "@/components/providers/firebase-auth-provider"
 
 // Message interface is imported from messaging-service
 
@@ -23,7 +23,6 @@ interface ChatAreaProps {
     id: string
     username: string
     realName: string
-    profileImageUrl?: string
     isOnline: boolean
   }
 }
@@ -35,7 +34,6 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [showFileUpload, setShowFileUpload] = useState(false)
   
   const { 
     isConnected, 
@@ -68,7 +66,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     })
 
     return () => {
-      subscription.unsubscribe()
+      subscription()
     }
   }, [chatId])
 
@@ -111,7 +109,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if ((!message.trim() && !showFileUpload) || !user) return
+    if (!message.trim() || !user) return
 
     try {
       const result = await MessagingService.sendMessage(
@@ -125,7 +123,6 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
       if (result.success && result.message) {
         setMessages(prev => [...prev, result.message!])
         setMessage("")
-        setShowFileUpload(false)
       } else {
         toast.error(result.error || "Failed to send message")
       }
@@ -135,40 +132,6 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     }
   }
 
-  const handleFileUpload = async (fileData: {
-    fileUrl: string
-    fileName: string
-    fileSize: number
-    fileType: string
-  }) => {
-    if (!user) return
-
-    try {
-      const result = await MessagingService.sendMessage(
-        chatId,
-        user.id,
-        otherUser.id,
-        undefined,
-        fileData.fileType.startsWith("image/") ? "IMAGE" : 
-        fileData.fileType.startsWith("video/") ? "VIDEO" : "FILE",
-        fileData.fileUrl,
-        fileData.fileName,
-        fileData.fileSize,
-        fileData.fileType
-      )
-
-      if (result.success && result.message) {
-        setMessages(prev => [...prev, result.message!])
-        setShowFileUpload(false)
-      } else {
-        toast.error(result.error || "Failed to send file")
-      }
-    } catch (error) {
-      console.error("Error sending file:", error)
-      toast.error("Failed to send file")
-    }
-
-  }
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(e.target.value)
@@ -187,6 +150,10 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     }, 1000)
   }
 
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji)
+  }
+
   const formatMessageTime = (date: string) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
@@ -201,7 +168,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
           <div className="flex items-center space-x-3">
             <div className="relative">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={otherUser.profileImageUrl} />
+                <AvatarImage src={getRandomAvatar()} />
                 <AvatarFallback>
                   {otherUser.realName
                     .split(" ")
@@ -243,41 +210,31 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
                 msg.senderId === user?.id ? "justify-end" : "justify-start"
               }`}
             >
-              {msg.type === "TEXT" && msg.content ? (
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    msg.senderId === user?.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
-                >
-                  <p className="text-sm">{msg.content}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <p
-                      className={`text-xs ${
-                        msg.senderId === user?.id
-                          ? "text-primary-foreground/70"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {formatMessageTime(msg.createdAt)}
-                    </p>
-                    {msg.senderId === user?.id && (
-                      <span className="text-xs ml-2">
-                        {msg.isRead ? "✓✓" : "✓"}
-                      </span>
-                    )}
-                  </div>
+              <div
+                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  msg.senderId === user?.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                }`}
+              >
+                <p className="text-sm">{msg.content}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p
+                    className={`text-xs ${
+                      msg.senderId === user?.id
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {formatMessageTime(msg.createdAt)}
+                  </p>
+                  {msg.senderId === user?.id && (
+                    <span className="text-xs ml-2">
+                      {msg.isRead ? "✓✓" : "✓"}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <FileMessage
-                  fileUrl={msg.fileUrl || ""}
-                  fileName={msg.fileName || ""}
-                  fileSize={msg.fileSize || 0}
-                  fileType={msg.fileType || ""}
-                  isOwnMessage={msg.senderId === user?.id}
-                />
-              )}
+              </div>
             </div>
           ))}
           {isOtherUserTyping && (
@@ -300,28 +257,9 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
         </div>
       </ScrollArea>
 
-      {/* File Upload Area */}
-      {showFileUpload && (
-        <div className="p-4 border-t bg-card">
-          <FileUpload
-            onFileUpload={handleFileUpload}
-            disabled={isLoading}
-          />
-        </div>
-      )}
-
       {/* Message Input */}
       <div className="p-4 border-t bg-card">
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowFileUpload(!showFileUpload)}
-            className={showFileUpload ? "text-primary" : ""}
-          >
-            <Icons.paperclip className="h-4 w-4" />
-          </Button>
           <Input
             type="text"
             placeholder="Type a message..."
@@ -329,13 +267,11 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
             onChange={handleTyping}
             className="flex-1"
           />
-          <Button type="button" variant="ghost" size="icon">
-            <Icons.smile className="h-4 w-4" />
-          </Button>
+          <EmojiPickerComponent onEmojiSelect={handleEmojiSelect} />
           <Button 
             type="submit" 
             size="icon" 
-            disabled={(!message.trim() && !showFileUpload) || isLoading}
+            disabled={!message.trim() || isLoading}
           >
             <Icons.send className="h-4 w-4" />
           </Button>

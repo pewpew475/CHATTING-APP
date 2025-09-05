@@ -12,7 +12,7 @@ import { Icons } from "@/components/ui/icons"
 import { FriendsList } from "@/components/friends/friends-list"
 import { SettingsDialog } from "@/components/profile/settings-dialog"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { getUserProfile } from "@/lib/profile-storage"
 import { type Chat } from "@/lib/messaging-service"
 
@@ -52,10 +52,10 @@ export function ChatSidebar({
     loadProfile()
   }, [user?.id])
   
-  const displayName = userProfile?.realName || user?.user_metadata?.full_name || user?.user_metadata?.name || "User"
+  const displayName = userProfile?.realName || user?.displayName || "User"
   const username = userProfile?.username || user?.email?.split('@')[0] || "user"
   const email = user?.email || "user@example.com"
-  const profileImage = userProfile?.profileImageUrl || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ""
+  const profileImage = userProfile?.profileImageUrl || user?.photoURL || ""
 
   const filteredChats = chats.filter(chat =>
     chat.otherUser?.realName.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -1,5 +1,21 @@
 // Real-time friend management service
-import { supabase } from './supabase'
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  onSnapshot,
+  serverTimestamp
+} from 'firebase/firestore'
+import { db } from './firebase'
+import { io } from 'socket.io-client'
 
 export interface Friend {
   id: string
@@ -40,17 +56,70 @@ export class FriendService {
   // Search for users by username, real name, or email
   static async searchUsers(searchTerm: string, currentUserId: string): Promise<SearchResult[]> {
     try {
-      const { data, error } = await supabase.rpc('search_users', {
-        search_term: searchTerm,
-        current_user_id: currentUserId
-      })
+      // Search in users collection by email
+      const searchLower = searchTerm.toLowerCase()
+      
+      const q = query(
+        collection(db, 'users'),
+        where('email', '==', searchLower),
+        limit(10)
+      )
 
-      if (error) {
-        console.error('Error searching users:', error)
-        return []
+      const snapshot = await getDocs(q)
+      const results: SearchResult[] = []
+
+      for (const docSnapshot of snapshot.docs) {
+        const userData = docSnapshot.data()
+        const userId = docSnapshot.id
+
+        if (userId === currentUserId) continue
+
+        // Check if already friends
+        const friendsQuery = query(
+          collection(db, 'friendships'),
+          where('userId', '==', currentUserId),
+          where('friendId', '==', userId)
+        )
+        const friendsSnapshot = await getDocs(friendsQuery)
+        const isFriend = !friendsSnapshot.empty
+
+        // Check for pending friend requests
+        const outgoingQuery = query(
+          collection(db, 'friendRequests'),
+          where('fromUserId', '==', currentUserId),
+          where('toUserId', '==', userId),
+          where('status', '==', 'pending')
+        )
+        const incomingQuery = query(
+          collection(db, 'friendRequests'),
+          where('fromUserId', '==', userId),
+          where('toUserId', '==', currentUserId),
+          where('status', '==', 'pending')
+        )
+
+        const [outgoingSnapshot, incomingSnapshot] = await Promise.all([
+          getDocs(outgoingQuery),
+          getDocs(incomingQuery)
+        ])
+
+        let friendRequestStatus = 'none'
+        if (!outgoingSnapshot.empty) friendRequestStatus = 'pending'
+        if (!incomingSnapshot.empty) friendRequestStatus = 'incoming'
+
+        results.push({
+          id: userId,
+          username: userData.username,
+          realName: userData.realName,
+          email: userData.email,
+          profileImageUrl: userData.profileImageUrl,
+          isOnline: userData.isOnline || false,
+          lastSeen: userData.lastSeen?.toDate?.()?.toISOString() || '',
+          isFriend,
+          friendRequestStatus
+        })
       }
 
-      return data || []
+      return results
     } catch (error) {
       console.error('Error searching users:', error)
       return []
@@ -61,73 +130,76 @@ export class FriendService {
   static async findUserByEmail(email: string, currentUserId: string): Promise<SearchResult[]> {
     try {
       // Find profile by email
-      const { data: profiles, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('user_id, username, real_name, email, profile_image_url')
-        .ilike('email', email)
-        .limit(1)
+      const q = query(
+        collection(db, 'users'),
+        where('email', '==', email),
+        limit(1)
+      )
 
-      if (profileError) {
-        console.error('Error finding user by email:', profileError)
+      const snapshot = await getDocs(q)
+      
+      if (snapshot.empty) {
         return []
       }
 
-      if (!profiles || profiles.length === 0) {
-        return []
-      }
+      const docSnapshot = snapshot.docs[0]
+      const userData = docSnapshot.data()
+      const targetUserId = docSnapshot.id
 
-      const profile = profiles[0] as any
-      const targetUserId = profile.user_id as string
       if (targetUserId === currentUserId) {
         return []
       }
 
       // Determine friendship status
-      const { data: friendsA } = await supabase
-        .from('friends')
-        .select('id')
-        .eq('user_id', currentUserId)
-        .eq('friend_id', targetUserId)
-        .limit(1)
+      const friendsQuery1 = query(
+        collection(db, 'friendships'),
+        where('userId', '==', currentUserId),
+        where('friendId', '==', targetUserId)
+      )
+      const friendsQuery2 = query(
+        collection(db, 'friendships'),
+        where('userId', '==', targetUserId),
+        where('friendId', '==', currentUserId)
+      )
 
-      const { data: friendsB } = await supabase
-        .from('friends')
-        .select('id')
-        .eq('user_id', targetUserId)
-        .eq('friend_id', currentUserId)
-        .limit(1)
+      const [friendsSnapshot1, friendsSnapshot2] = await Promise.all([
+        getDocs(friendsQuery1),
+        getDocs(friendsQuery2)
+      ])
 
-      const isFriend = Boolean((friendsA && friendsA.length > 0) || (friendsB && friendsB.length > 0))
+      const isFriend = !friendsSnapshot1.empty || !friendsSnapshot2.empty
 
       // Determine pending request status
-      const { data: outgoingReq } = await supabase
-        .from('friend_requests')
-        .select('id, status')
-        .eq('from_user_id', currentUserId)
-        .eq('to_user_id', targetUserId)
-        .in('status', ['pending'])
-        .limit(1)
+      const outgoingQuery = query(
+        collection(db, 'friendRequests'),
+        where('fromUserId', '==', currentUserId),
+        where('toUserId', '==', targetUserId),
+        where('status', '==', 'pending')
+      )
+      const incomingQuery = query(
+        collection(db, 'friendRequests'),
+        where('fromUserId', '==', targetUserId),
+        where('toUserId', '==', currentUserId),
+        where('status', '==', 'pending')
+      )
 
-      const { data: incomingReq } = await supabase
-        .from('friend_requests')
-        .select('id, status')
-        .eq('from_user_id', targetUserId)
-        .eq('to_user_id', currentUserId)
-        .in('status', ['pending'])
-        .limit(1)
+      const [outgoingSnapshot, incomingSnapshot] = await Promise.all([
+        getDocs(outgoingQuery),
+        getDocs(incomingQuery)
+      ])
 
       let friendRequestStatus = 'none'
-      if (outgoingReq && outgoingReq.length > 0) friendRequestStatus = 'pending'
-      if (incomingReq && incomingReq.length > 0) friendRequestStatus = 'incoming'
+      if (!outgoingSnapshot.empty) friendRequestStatus = 'pending'
+      if (!incomingSnapshot.empty) friendRequestStatus = 'incoming'
 
       const result: SearchResult = {
         id: targetUserId,
-        username: profile.username,
-        realName: profile.real_name,
-        email: profile.email,
-        profileImageUrl: profile.profile_image_url || undefined,
-        isOnline: false,
-        lastSeen: '',
+        username: userData.username,
+        realName: userData.realName,
+        email: userData.email,
+        profileImageUrl: userData.profileImageUrl,
+        isOnline: userData.isOnline || false,
+        lastSeen: userData.lastSeen?.toDate?.()?.toISOString() || '',
         isFriend,
         friendRequestStatus,
       }
@@ -144,23 +216,29 @@ export class FriendService {
     try {
       console.log('Sending friend request from:', fromUserId, 'to:', toUserId)
       
-      const { data, error } = await supabase
-        .from('friend_requests')
-        .insert({
-          from_user_id: fromUserId,
-          to_user_id: toUserId,
-          message: message || null,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        })
-        .select()
-
-      if (error) {
-        console.error('Error sending friend request:', error)
-        return { success: false, error: error.message }
+      const requestData = {
+        fromUserId,
+        toUserId,
+        message: message || null,
+        status: 'pending',
+        createdAt: serverTimestamp()
       }
 
-      console.log('Friend request sent successfully:', data)
+      const docRef = await addDoc(collection(db, 'friendRequests'), requestData)
+
+      // Emit real-time event via Socket.IO
+      const socket = io({ path: '/api/socketio' })
+      socket.emit('send_friend_request', {
+        requestId: docRef.id,
+        fromUserId,
+        toUserId,
+        message: message || null,
+        status: 'pending',
+        createdAt: new Date()
+      })
+      socket.disconnect()
+
+      console.log('Friend request sent successfully')
       return { success: true }
     } catch (error) {
       console.error('Error sending friend request:', error)
@@ -174,50 +252,49 @@ export class FriendService {
       console.log('Accepting friend request:', requestId)
       
       // First get the request details
-      const { data: request, error: requestError } = await supabase
-        .from('friend_requests')
-        .select('from_user_id, to_user_id')
-        .eq('id', requestId)
-        .eq('status', 'pending')
-        .single()
-
-      if (requestError || !request) {
-        console.error('Error getting friend request:', requestError)
+      const requestDoc = await getDoc(doc(db, 'friendRequests', requestId))
+      
+      if (!requestDoc.exists()) {
+        console.error('Friend request not found')
         return { success: false, error: 'Friend request not found' }
       }
 
-      // Create friendship in both directions
-      const { error: friend1Error } = await supabase
-        .from('friends')
-        .insert({
-          user_id: request.from_user_id,
-          friend_id: request.to_user_id,
-          created_at: new Date().toISOString()
-        })
-
-      const { error: friend2Error } = await supabase
-        .from('friends')
-        .insert({
-          user_id: request.to_user_id,
-          friend_id: request.from_user_id,
-          created_at: new Date().toISOString()
-        })
-
-      if (friend1Error || friend2Error) {
-        console.error('Error creating friendship:', friend1Error || friend2Error)
-        return { success: false, error: 'Failed to create friendship' }
+      const requestData = requestDoc.data()
+      if (requestData.status !== 'pending') {
+        return { success: false, error: 'Friend request is not pending' }
       }
+
+      // Create friendship in both directions
+      const friendship1 = {
+        userId: requestData.fromUserId,
+        friendId: requestData.toUserId,
+        createdAt: serverTimestamp()
+      }
+
+      const friendship2 = {
+        userId: requestData.toUserId,
+        friendId: requestData.fromUserId,
+        createdAt: serverTimestamp()
+      }
+
+      await Promise.all([
+        addDoc(collection(db, 'friendships'), friendship1),
+        addDoc(collection(db, 'friendships'), friendship2)
+      ])
 
       // Update request status to accepted
-      const { error: updateError } = await supabase
-        .from('friend_requests')
-        .update({ status: 'accepted' })
-        .eq('id', requestId)
+      await updateDoc(doc(db, 'friendRequests', requestId), { status: 'accepted' })
 
-      if (updateError) {
-        console.error('Error updating request status:', updateError)
-        // Don't fail the whole operation if status update fails
-      }
+      // Emit real-time event via Socket.IO
+      const socket = io({ path: '/api/socketio' })
+      socket.emit('friend_request_accepted', {
+        requestId,
+        fromUserId: requestData.fromUserId,
+        toUserId: requestData.toUserId,
+        status: 'accepted',
+        createdAt: new Date()
+      })
+      socket.disconnect()
 
       console.log('Friend request accepted successfully')
       return { success: true }
@@ -230,15 +307,22 @@ export class FriendService {
   // Decline a friend request
   static async declineFriendRequest(requestId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('friend_requests')
-        .update({ status: 'declined' })
-        .eq('id', requestId)
+      // First get the request details for Socket.IO
+      const requestDoc = await getDoc(doc(db, 'friendRequests', requestId))
+      const requestData = requestDoc.data()
+      
+      await updateDoc(doc(db, 'friendRequests', requestId), { status: 'declined' })
 
-      if (error) {
-        console.error('Error declining friend request:', error)
-        return { success: false, error: error.message }
-      }
+      // Emit real-time event via Socket.IO
+      const socket = io({ path: '/api/socketio' })
+      socket.emit('friend_request_rejected', {
+        requestId,
+        fromUserId: requestData?.fromUserId,
+        toUserId: requestData?.toUserId,
+        status: 'declined',
+        createdAt: new Date()
+      })
+      socket.disconnect()
 
       return { success: true }
     } catch (error) {
@@ -250,16 +334,36 @@ export class FriendService {
   // Get user's friends
   static async getUserFriends(userId: string): Promise<Friend[]> {
     try {
-      const { data, error } = await supabase.rpc('get_user_friends', {
-        user_uuid: userId
-      })
+      const q = query(
+        collection(db, 'friendships'),
+        where('userId', '==', userId)
+      )
 
-      if (error) {
-        console.error('Error getting user friends:', error)
-        return []
+      const snapshot = await getDocs(q)
+      const friends: Friend[] = []
+
+      for (const docSnapshot of snapshot.docs) {
+        const friendshipData = docSnapshot.data()
+        const friendId = friendshipData.friendId
+
+        // Get friend's profile
+        const friendDoc = await getDoc(doc(db, 'users', friendId))
+        if (friendDoc.exists()) {
+          const friendData = friendDoc.data()
+          friends.push({
+            id: friendId,
+            username: friendData.username,
+            realName: friendData.realName,
+            email: friendData.email,
+            profileImageUrl: friendData.profileImageUrl,
+            isOnline: friendData.isOnline || false,
+            lastSeen: friendData.lastSeen?.toDate?.()?.toISOString() || '',
+            friendshipCreatedAt: friendshipData.createdAt?.toDate?.()?.toISOString() || ''
+          })
+        }
       }
 
-      return data || []
+      return friends
     } catch (error) {
       console.error('Error getting user friends:', error)
       return []
@@ -272,45 +376,38 @@ export class FriendService {
       console.log('Loading friend requests for user:', userId)
       
       // Get incoming friend requests
-      const { data: incomingRequests, error: incomingError } = await supabase
-        .from('friend_requests')
-        .select(`
-          id,
-          from_user_id,
-          to_user_id,
-          message,
-          created_at,
-          status,
-          from_user:user_profiles!friend_requests_from_user_id_fkey(
-            user_id,
-            username,
-            real_name,
-            profile_image_url
-          )
-        `)
-        .eq('to_user_id', userId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+      const q = query(
+        collection(db, 'friendRequests'),
+        where('toUserId', '==', userId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+      )
 
-      if (incomingError) {
-        console.error('Error getting incoming friend requests:', incomingError)
-        return []
+      const snapshot = await getDocs(q)
+      const requests: FriendRequest[] = []
+
+      for (const docSnapshot of snapshot.docs) {
+        const requestData = docSnapshot.data()
+        
+        // Get sender's profile
+        const senderDoc = await getDoc(doc(db, 'users', requestData.fromUserId))
+        if (senderDoc.exists()) {
+          const senderData = senderDoc.data()
+          requests.push({
+            id: docSnapshot.id,
+            fromUserId: requestData.fromUserId,
+            toUserId: requestData.toUserId,
+            username: senderData.username,
+            realName: senderData.realName,
+            profileImageUrl: senderData.profileImageUrl,
+            message: requestData.message,
+            createdAt: requestData.createdAt?.toDate?.()?.toISOString() || '',
+            isIncoming: true
+          })
+        }
       }
 
-      console.log('Incoming friend requests:', incomingRequests)
-
-      const requests: FriendRequest[] = (incomingRequests || []).map((req: any) => ({
-        id: req.id,
-        fromUserId: req.from_user_id,
-        toUserId: req.to_user_id,
-        username: req.from_user?.username || 'Unknown',
-        realName: req.from_user?.real_name || 'Unknown User',
-        profileImageUrl: req.from_user?.profile_image_url,
-        message: req.message,
-        createdAt: req.created_at,
-        isIncoming: true
-      }))
-
+      console.log('Incoming friend requests:', requests)
       return requests
     } catch (error) {
       console.error('Error getting friend requests:', error)
@@ -321,23 +418,29 @@ export class FriendService {
   // Remove a friend
   static async removeFriend(userId: string, friendId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Delete both directions of the friendship
-      const { error: error1 } = await supabase
-        .from('friends')
-        .delete()
-        .eq('user_id', userId)
-        .eq('friend_id', friendId)
+      // Find and delete both directions of the friendship
+      const q1 = query(
+        collection(db, 'friendships'),
+        where('userId', '==', userId),
+        where('friendId', '==', friendId)
+      )
+      const q2 = query(
+        collection(db, 'friendships'),
+        where('userId', '==', friendId),
+        where('friendId', '==', userId)
+      )
 
-      const { error: error2 } = await supabase
-        .from('friends')
-        .delete()
-        .eq('user_id', friendId)
-        .eq('friend_id', userId)
+      const [snapshot1, snapshot2] = await Promise.all([
+        getDocs(q1),
+        getDocs(q2)
+      ])
 
-      if (error1 || error2) {
-        console.error('Error removing friend:', error1 || error2)
-        return { success: false, error: 'Failed to remove friend' }
-      }
+      const deletePromises = [
+        ...snapshot1.docs.map(doc => deleteDoc(doc.ref)),
+        ...snapshot2.docs.map(doc => deleteDoc(doc.ref))
+      ]
+
+      await Promise.all(deletePromises)
 
       return { success: true }
     } catch (error) {
@@ -349,19 +452,11 @@ export class FriendService {
   // Update user online status
   static async updateOnlineStatus(userId: string, isOnline: boolean): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('user_online_status')
-        .upsert({
-          user_id: userId,
-          is_online: isOnline,
-          last_seen: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-
-      if (error) {
-        console.error('Error updating online status:', error)
-        return { success: false, error: error.message }
-      }
+      await updateDoc(doc(db, 'users', userId), {
+        isOnline,
+        lastSeen: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
 
       return { success: true }
     } catch (error) {
@@ -372,51 +467,93 @@ export class FriendService {
 
   // Subscribe to friend requests changes
   static subscribeToFriendRequests(userId: string, callback: (payload: any) => void) {
-    return supabase
-      .channel('friend_requests')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friend_requests',
-          filter: `or(from_user_id.eq.${userId},to_user_id.eq.${userId})`
-        },
-        callback
-      )
-      .subscribe()
+    const q1 = query(
+      collection(db, 'friendRequests'),
+      where('fromUserId', '==', userId)
+    )
+    const q2 = query(
+      collection(db, 'friendRequests'),
+      where('toUserId', '==', userId)
+    )
+
+    const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        callback({
+          eventType: change.type,
+          new: change.doc.data(),
+          old: change.type === 'removed' ? change.doc.data() : undefined
+        })
+      })
+    })
+
+    const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        callback({
+          eventType: change.type,
+          new: change.doc.data(),
+          old: change.type === 'removed' ? change.doc.data() : undefined
+        })
+      })
+    })
+
+    return () => {
+      unsubscribe1()
+      unsubscribe2()
+    }
   }
 
   // Subscribe to friends changes
   static subscribeToFriends(userId: string, callback: (payload: any) => void) {
-    return supabase
-      .channel('friends')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friends',
-          filter: `or(user_id.eq.${userId},friend_id.eq.${userId})`
-        },
-        callback
-      )
-      .subscribe()
+    const q1 = query(
+      collection(db, 'friendships'),
+      where('userId', '==', userId)
+    )
+    const q2 = query(
+      collection(db, 'friendships'),
+      where('friendId', '==', userId)
+    )
+
+    const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        callback({
+          eventType: change.type,
+          new: change.doc.data(),
+          old: change.type === 'removed' ? change.doc.data() : undefined
+        })
+      })
+    })
+
+    const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        callback({
+          eventType: change.type,
+          new: change.doc.data(),
+          old: change.type === 'removed' ? change.doc.data() : undefined
+        })
+      })
+    })
+
+    return () => {
+      unsubscribe1()
+      unsubscribe2()
+    }
   }
 
   // Subscribe to online status changes
   static subscribeToOnlineStatus(userId: string, callback: (payload: any) => void) {
-    return supabase
-      .channel('online_status')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_online_status'
-        },
-        callback
-      )
-      .subscribe()
+    const q = query(
+      collection(db, 'users'),
+      where('isOnline', '==', true)
+    )
+
+    return onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        callback({
+          eventType: change.type,
+          new: change.doc.data(),
+          old: change.type === 'removed' ? change.doc.data() : undefined
+        })
+      })
+    })
   }
 }

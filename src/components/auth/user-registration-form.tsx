@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
-import { uploadProfileImage } from "@/lib/supabase"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
+import { getRandomAvatar } from "@/components/providers/firebase-auth-provider"
 import { saveUserProfile } from "@/lib/profile-storage"
 
 interface UserRegistrationFormProps {
@@ -39,7 +39,7 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
-  const [profileImage, setProfileImage] = useState<string | null>(initialData?.photoURL || null)
+  const [profileImage, setProfileImage] = useState<string | null>(initialData?.photoURL || getRandomAvatar())
   
   const [userData, setUserData] = useState<UserData>({
     realName: initialData?.realName || "",
@@ -69,36 +69,10 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
     }
   }
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !user?.id) return
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file")
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error("Image size must be less than 5MB")
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const result = await uploadProfileImage(file, user.id)
-      
-      if (result.success) {
-        setProfileImage(result.url!)
-        toast.success("Profile picture uploaded successfully")
-      } else {
-        toast.error(result.error || "Failed to upload profile picture")
-      }
-    } catch (error) {
-      toast.error("Failed to upload profile picture")
-      console.error("Avatar upload error:", error)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleGenerateNewAvatar = () => {
+    const newAvatar = getRandomAvatar()
+    setProfileImage(newAvatar)
+    toast.success("New avatar generated!")
   }
 
   const validateStep1 = () => {
@@ -370,7 +344,7 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
               <div className="flex flex-col items-center space-y-4">
                 <div className="relative">
                   <Avatar className="h-32 w-32">
-                    <AvatarImage src={profileImage || initialData?.photoURL} />
+                    <AvatarImage src={profileImage || getRandomAvatar()} />
                     <AvatarFallback className="text-2xl">
                       {userData.realName
                         .split(" ")
@@ -379,23 +353,17 @@ export function UserRegistrationForm({ isOpen, onClose, initialData }: UserRegis
                         .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <label
-                    htmlFor="avatar-upload"
+                  <button
+                    type="button"
+                    onClick={handleGenerateNewAvatar}
                     className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
-                  >
-                    <Icons.camera className="h-4 w-4" />
-                  </label>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
                     disabled={isLoading}
-                  />
+                  >
+                    <Icons.refresh className="h-4 w-4" />
+                  </button>
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
-                  Click the camera icon to upload a profile picture
+                  Click the refresh icon to generate a new avatar
                 </p>
               </div>
 

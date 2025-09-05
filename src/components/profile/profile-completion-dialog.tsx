@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -43,9 +43,9 @@ export function ProfileCompletionDialog() {
         
         if (needsProfile) {
           console.log('ProfileCompletionDialog: Opening dialog for user:', user.email)
-          // Pre-fill with Supabase user data
+          // Pre-fill with Firebase user data
           setProfileData({
-            realName: user.user_metadata?.full_name || user.user_metadata?.name || "",
+            realName: user.displayName || "",
             username: user.email?.split('@')[0] || "",
             email: user.email || "",
             bio: ""

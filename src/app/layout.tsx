@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { SupabaseAuthProvider } from "@/components/providers/supabase-auth-provider";
+import { FirebaseAuthProvider } from "@/components/providers/firebase-auth-provider";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 ;
@@ -46,12 +46,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`} suppressHydrationWarning
       >
-        <SupabaseAuthProvider>
+        <FirebaseAuthProvider>
           {children}
           <Toaster />
           <Analytics />
           <SpeedInsights />
-        </SupabaseAuthProvider>
+        </FirebaseAuthProvider>
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useAuth } from "@/components/providers/supabase-auth-provider"
+import { useAuth } from "@/components/providers/firebase-auth-provider"
 import { io, Socket } from "socket.io-client"
 
 interface UseSocketProps {
@@ -31,6 +31,14 @@ interface TypingIndicator {
   userId: string
   chatId: string
   isTyping: boolean
+}
+
+interface FriendRequest {
+  id: string
+  fromUserId: string
+  toUserId: string
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: Date
 }
 
 export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
@@ -120,6 +128,22 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
       ))
     })
 
+    // Handle friend requests
+    socket.on('friend_request', (request: FriendRequest) => {
+      console.log('Friend request received:', request)
+      // You can add state management for friend requests here
+    })
+
+    socket.on('friend_request_accepted', (request: FriendRequest) => {
+      console.log('Friend request accepted:', request)
+      // You can add state management for accepted requests here
+    })
+
+    socket.on('friend_request_rejected', (request: FriendRequest) => {
+      console.log('Friend request rejected:', request)
+      // You can add state management for rejected requests here
+    })
+
     // Handle errors
     socket.on('error', (error: { message: string }) => {
       console.error('Socket error:', error.message)
@@ -164,6 +188,27 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     return typingUsers.get(`${userId}_${chatId}`) || false
   }
 
+  const sendFriendRequest = (toUserId: string) => {
+    if (socketRef.current && user?.id) {
+      socketRef.current.emit('send_friend_request', {
+        fromUserId: user.id,
+        toUserId: toUserId
+      })
+    }
+  }
+
+  const acceptFriendRequest = (requestId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('accept_friend_request', { requestId })
+    }
+  }
+
+  const rejectFriendRequest = (requestId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('reject_friend_request', { requestId })
+    }
+  }
+
   return {
     isConnected,
     messages,
@@ -172,6 +217,9 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     markMessageAsRead,
     isUserOnline,
     isUserTyping,
+    sendFriendRequest,
+    acceptFriendRequest,
+    rejectFriendRequest,
     socket: socketRef.current,
   }
 }

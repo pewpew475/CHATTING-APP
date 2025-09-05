@@ -1,5 +1,19 @@
 // Real-time messaging service
-import { supabase } from './supabase'
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  onSnapshot,
+  serverTimestamp
+} from 'firebase/firestore'
+import { db } from './firebase'
 
 export interface Message {
   id: string
@@ -39,17 +53,43 @@ export class MessagingService {
   // Get or create a chat between two users
   static async getOrCreateChat(user1Id: string, user2Id: string): Promise<{ success: boolean; chatId?: string; error?: string }> {
     try {
-      const { data, error } = await supabase.rpc('get_or_create_chat', {
-        user1_uuid: user1Id,
-        user2_uuid: user2Id
-      })
+      // First, check if a chat already exists between these users
+      const q1 = query(
+        collection(db, 'chats'),
+        where('participant1', '==', user1Id),
+        where('participant2', '==', user2Id)
+      )
+      
+      const q2 = query(
+        collection(db, 'chats'),
+        where('participant1', '==', user2Id),
+        where('participant2', '==', user1Id)
+      )
 
-      if (error) {
-        console.error('Error getting/creating chat:', error)
-        return { success: false, error: error.message }
+      const [snapshot1, snapshot2] = await Promise.all([
+        getDocs(q1),
+        getDocs(q2)
+      ])
+
+      // Check if chat exists in either direction
+      if (!snapshot1.empty) {
+        return { success: true, chatId: snapshot1.docs[0].id }
+      }
+      
+      if (!snapshot2.empty) {
+        return { success: true, chatId: snapshot2.docs[0].id }
       }
 
-      return { success: true, chatId: data }
+      // Create new chat if none exists
+      const chatData = {
+        participant1: user1Id,
+        participant2: user2Id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+
+      const docRef = await addDoc(collection(db, 'chats'), chatData)
+      return { success: true, chatId: docRef.id }
     } catch (error) {
       console.error('Error getting/creating chat:', error)
       return { success: false, error: 'Failed to get or create chat' }
@@ -59,72 +99,86 @@ export class MessagingService {
   // Get user's chats with last message
   static async getUserChats(userId: string): Promise<Chat[]> {
     try {
-      // 1) Load chats without joins to avoid FK name coupling
-      const { data: chats, error: chatsError } = await supabase
-        .from('chats')
-        .select('*')
-        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
+      // 1) Load chats where user is participant1 or participant2
+      const q1 = query(
+        collection(db, 'chats'),
+        where('participant1', '==', userId)
+      )
+      
+      const q2 = query(
+        collection(db, 'chats'),
+        where('participant2', '==', userId)
+      )
 
-      if (chatsError) {
-        console.error('Error getting user chats (base):', chatsError)
-        return []
-      }
+      const [snapshot1, snapshot2] = await Promise.all([
+        getDocs(q1),
+        getDocs(q2)
+      ])
 
-      const chatRows = chats || []
+      const chatRows: any[] = []
+      snapshot1.forEach(doc => {
+        chatRows.push({ id: doc.id, ...doc.data(), user1Id: doc.data().participant1, user2Id: doc.data().participant2 })
+      })
+      snapshot2.forEach(doc => {
+        chatRows.push({ id: doc.id, ...doc.data(), user1Id: doc.data().participant1, user2Id: doc.data().participant2 })
+      })
+
       if (chatRows.length === 0) return []
 
       // 2) Gather other user IDs and last message IDs
-      const otherUserIds = Array.from(new Set(chatRows.map(c => c.user1_id === userId ? c.user2_id : c.user1_id)))
-      const lastMessageIds = Array.from(new Set(chatRows.map(c => c.last_message_id).filter(Boolean)))
+      const otherUserIds = Array.from(new Set(chatRows.map(c => c.user1Id === userId ? c.user2Id : c.user1Id)))
+      const lastMessageIds = Array.from(new Set(chatRows.map(c => c.lastMessageId).filter(Boolean)))
 
       // 3) Load profiles for other users
-      const { data: profiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('user_id, username, real_name, profile_image_url')
-        .in('user_id', otherUserIds)
-
-      if (profilesError) {
-        console.error('Error loading chat user profiles:', profilesError)
-      }
-
       const userIdToProfile = new Map<string, any>()
-      ;(profiles || []).forEach((p: any) => userIdToProfile.set(p.user_id, p))
+      for (const otherUserId of otherUserIds) {
+        const userDoc = await getDoc(doc(db, 'users', otherUserId))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          userIdToProfile.set(otherUserId, {
+            userId: otherUserId,
+            username: userData.username,
+            realName: userData.realName,
+            profileImageUrl: userData.profileImageUrl
+          })
+        }
+      }
 
       // 4) Load last messages
       let messagesById = new Map<string, any>()
-      if (lastMessageIds.length > 0) {
-        const { data: messages, error: messagesError } = await supabase
-          .from('messages')
-          .select('id, content, type, file_name, created_at')
-          .in('id', lastMessageIds)
-
-        if (messagesError) {
-          console.error('Error loading last messages:', messagesError)
+      for (const messageId of lastMessageIds) {
+        const messageDoc = await getDoc(doc(db, 'messages', messageId))
+        if (messageDoc.exists()) {
+          const messageData = messageDoc.data()
+          messagesById.set(messageId, {
+            id: messageId,
+            content: messageData.content,
+            type: messageData.type,
+            fileName: messageData.fileName,
+            createdAt: messageData.createdAt?.toDate?.()?.toISOString()
+          })
         }
-        (messages || []).forEach((m: any) => messagesById.set(m.id, m))
       }
 
       // 5) Compose result
       return chatRows.map((chat: any) => {
-        const otherId = chat.user1_id === userId ? chat.user2_id : chat.user1_id
+        const otherId = chat.user1Id === userId ? chat.user2Id : chat.user1Id
         const profile = userIdToProfile.get(otherId)
-        const last = chat.last_message_id ? messagesById.get(chat.last_message_id) : undefined
+        const last = chat.lastMessageId ? messagesById.get(chat.lastMessageId) : undefined
 
         const composed: Chat = {
           id: chat.id,
-          user1Id: chat.user1_id,
-          user2Id: chat.user2_id,
-          lastMessageId: chat.last_message_id || undefined,
-          lastMessageAt: chat.last_message_at || undefined,
-          createdAt: chat.created_at,
-          updatedAt: chat.updated_at,
+          user1Id: chat.user1Id,
+          user2Id: chat.user2Id,
+          lastMessageId: chat.lastMessageId || undefined,
+          lastMessageAt: chat.lastMessageAt?.toDate?.()?.toISOString() || undefined,
+          createdAt: chat.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: chat.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           otherUser: profile ? {
             id: otherId,
             username: profile.username,
-            realName: profile.real_name,
-            profileImageUrl: profile.profile_image_url,
+            realName: profile.realName,
+            profileImageUrl: profile.profileImageUrl,
             isOnline: false
           } : undefined,
           lastMessage: last ? {
@@ -134,13 +188,20 @@ export class MessagingService {
             receiverId: '',
             content: last.content,
             type: last.type,
-            fileName: last.file_name,
+            fileName: last.fileName,
             isRead: false,
-            createdAt: last.created_at,
-            updatedAt: last.created_at
+            createdAt: last.createdAt,
+            updatedAt: last.createdAt
           } : undefined
         }
         return composed
+      })
+      
+      // Sort chats by lastMessageAt in descending order (most recent first)
+      return chats.sort((a, b) => {
+        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+        return bTime - aTime
       })
     } catch (error) {
       console.error('Error getting user chats (unexpected):', error)
@@ -151,33 +212,36 @@ export class MessagingService {
   // Get messages for a chat
   static async getChatMessages(chatId: string, limit: number = 50, offset: number = 0): Promise<Message[]> {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+      const q = query(
+        collection(db, 'messages'),
+        where('chatId', '==', chatId),
+        orderBy('createdAt', 'desc'),
+        limit(limit)
+      )
 
-      if (error) {
-        console.error('Error getting chat messages:', error)
-        return []
-      }
+      const snapshot = await getDocs(q)
+      const messages: Message[] = []
 
-      return (data || []).reverse().map(msg => ({
-        id: msg.id,
-        chatId: msg.chat_id,
-        senderId: msg.sender_id,
-        receiverId: msg.receiver_id,
-        content: msg.content,
-        type: msg.type,
-        fileUrl: msg.file_url,
-        fileName: msg.file_name,
-        fileSize: msg.file_size,
-        fileType: msg.file_type,
-        isRead: msg.is_read,
-        createdAt: msg.created_at,
-        updatedAt: msg.updated_at
-      }))
+      snapshot.forEach(doc => {
+        const data = doc.data()
+        messages.push({
+          id: doc.id,
+          chatId: data.chatId,
+          senderId: data.senderId,
+          receiverId: data.receiverId,
+          content: data.content,
+          type: data.type,
+          fileUrl: data.fileUrl,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          fileType: data.fileType,
+          isRead: data.isRead,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        })
+      })
+
+      return messages.reverse() // Reverse to get chronological order
     } catch (error) {
       console.error('Error getting chat messages:', error)
       return []
@@ -197,42 +261,46 @@ export class MessagingService {
     fileType?: string
   ): Promise<{ success: boolean; message?: Message; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          chat_id: chatId,
-          sender_id: senderId,
-          receiver_id: receiverId,
-          content: content || null,
-          type,
-          file_url: fileUrl || null,
-          file_name: fileName || null,
-          file_size: fileSize || null,
-          file_type: fileType || null
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Error sending message:', error)
-        return { success: false, error: error.message }
+      const messageData = {
+        chatId,
+        senderId,
+        receiverId,
+        content: content || null,
+        type,
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileSize: fileSize || null,
+        fileType: fileType || null,
+        isRead: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       }
+
+      const docRef = await addDoc(collection(db, 'messages'), messageData)
 
       const message: Message = {
-        id: data.id,
-        chatId: data.chat_id,
-        senderId: data.sender_id,
-        receiverId: data.receiver_id,
-        content: data.content,
-        type: data.type,
-        fileUrl: data.file_url,
-        fileName: data.file_name,
-        fileSize: data.file_size,
-        fileType: data.file_type,
-        isRead: data.is_read,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
+        id: docRef.id,
+        chatId,
+        senderId,
+        receiverId,
+        content: content || '',
+        type,
+        fileUrl: fileUrl || undefined,
+        fileName: fileName || undefined,
+        fileSize: fileSize || undefined,
+        fileType: fileType || undefined,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
+
+      // Update chat with last message info
+      const chatRef = doc(db, 'chats', chatId)
+      await updateDoc(chatRef, {
+        lastMessageId: docRef.id,
+        lastMessageAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
 
       return { success: true, message }
     } catch (error) {
@@ -244,15 +312,8 @@ export class MessagingService {
   // Mark message as read
   static async markMessageAsRead(messageId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('id', messageId)
-
-      if (error) {
-        console.error('Error marking message as read:', error)
-        return { success: false, error: error.message }
-      }
+      const messageRef = doc(db, 'messages', messageId)
+      await updateDoc(messageRef, { isRead: true })
 
       return { success: true }
     } catch (error) {
@@ -264,16 +325,18 @@ export class MessagingService {
   // Mark all messages in a chat as read
   static async markChatAsRead(chatId: string, userId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('chat_id', chatId)
-        .neq('sender_id', userId)
+      const q = query(
+        collection(db, 'messages'),
+        where('chatId', '==', chatId),
+        where('senderId', '!=', userId)
+      )
 
-      if (error) {
-        console.error('Error marking chat as read:', error)
-        return { success: false, error: error.message }
-      }
+      const snapshot = await getDocs(q)
+      const updatePromises = snapshot.docs.map(doc => 
+        updateDoc(doc.ref, { isRead: true })
+      )
+
+      await Promise.all(updatePromises)
 
       return { success: true }
     } catch (error) {
@@ -284,139 +347,108 @@ export class MessagingService {
 
   // Subscribe to new messages in a chat
   static subscribeToChatMessages(chatId: string, callback: (message: Message) => void) {
-    return supabase
-      .channel(`chat_${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`
-        },
-        (payload) => {
+    const q = query(
+      collection(db, 'messages'),
+      where('chatId', '==', chatId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    )
+
+    return onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data()
           const message: Message = {
-            id: payload.new.id,
-            chatId: payload.new.chat_id,
-            senderId: payload.new.sender_id,
-            receiverId: payload.new.receiver_id,
-            content: payload.new.content,
-            type: payload.new.type,
-            fileUrl: payload.new.file_url,
-            fileName: payload.new.file_name,
-            fileSize: payload.new.file_size,
-            fileType: payload.new.file_type,
-            isRead: payload.new.is_read,
-            createdAt: payload.new.created_at,
-            updatedAt: payload.new.updated_at
+            id: change.doc.id,
+            chatId: data.chatId,
+            senderId: data.senderId,
+            receiverId: data.receiverId,
+            content: data.content,
+            type: data.type,
+            fileUrl: data.fileUrl,
+            fileName: data.fileName,
+            fileSize: data.fileSize,
+            fileType: data.fileType,
+            isRead: data.isRead,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
           }
           callback(message)
         }
-      )
-      .subscribe()
+      })
+    })
   }
 
   // Subscribe to message read status updates
   static subscribeToMessageReadStatus(chatId: string, callback: (messageId: string) => void) {
-    return supabase
-      .channel(`chat_read_${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`
-        },
-        (payload) => {
-          if (payload.new.is_read && !payload.old.is_read) {
-            callback(payload.new.id)
+    const q = query(
+      collection(db, 'messages'),
+      where('chatId', '==', chatId)
+    )
+
+    return onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'modified') {
+          const data = change.doc.data()
+          if (data.isRead) {
+            callback(change.doc.id)
           }
         }
-      )
-      .subscribe()
+      })
+    })
   }
 
   // Subscribe to chat updates (new chats, last message updates)
   static subscribeToUserChats(userId: string, callback: (chat: Chat) => void) {
-    return supabase
-      .channel(`user_chats_${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chats',
-          filter: `or(user1_id.eq.${userId},user2_id.eq.${userId})`
-        },
-        async (payload) => {
-          // Fetch the updated chat with all related data
-          const { data, error } = await supabase
-            .from('chats')
-            .select(`
-              *,
-              user1:user_profiles!chats_user1_id_fkey(
-                user_id,
-                username,
-                real_name,
-                profile_image_url
-              ),
-              user2:user_profiles!chats_user2_id_fkey(
-                user_id,
-                username,
-                real_name,
-                profile_image_url
-              ),
-              last_message:messages!chats_last_message_id_fkey(
-                id,
-                content,
-                type,
-                file_name,
-                created_at
-              )
-            `)
-            .eq('id', (payload.new as any).id)
-            .single()
+    const q1 = query(
+      collection(db, 'chats'),
+      where('participant1', '==', userId)
+    )
+    
+    const q2 = query(
+      collection(db, 'chats'),
+      where('participant2', '==', userId)
+    )
 
-          if (data && !error) {
-            const chat: Chat = {
-              id: data.id,
-              user1Id: data.user1_id,
-              user2Id: data.user2_id,
-              lastMessageId: data.last_message_id,
-              lastMessageAt: data.last_message_at,
-              createdAt: data.created_at,
-              updatedAt: data.updated_at,
-              otherUser: data.user1_id === userId ? {
-                id: data.user2.user_id,
-                username: data.user2.username,
-                realName: data.user2.real_name,
-                profileImageUrl: data.user2.profile_image_url,
-                isOnline: false
-              } : {
-                id: data.user1.user_id,
-                username: data.user1.username,
-                realName: data.user1.real_name,
-                profileImageUrl: data.user1.profile_image_url,
-                isOnline: false
-              },
-              lastMessage: data.last_message ? {
-                id: data.last_message.id,
-                chatId: data.id,
-                senderId: '',
-                receiverId: '',
-                content: data.last_message.content,
-                type: data.last_message.type,
-                fileName: data.last_message.file_name,
-                isRead: false,
-                createdAt: data.last_message.created_at,
-                updatedAt: data.last_message.created_at
-              } : undefined
-            }
-            callback(chat)
+    const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const data = change.doc.data()
+          const chat: Chat = {
+            id: change.doc.id,
+            user1Id: data.participant1,
+            user2Id: data.participant2,
+            lastMessageId: data.lastMessageId,
+            lastMessageAt: data.lastMessageAt?.toDate?.()?.toISOString(),
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
           }
+          callback(chat)
         }
-      )
-      .subscribe()
+      })
+    })
+
+    const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const data = change.doc.data()
+          const chat: Chat = {
+            id: change.doc.id,
+            user1Id: data.participant1,
+            user2Id: data.participant2,
+            lastMessageId: data.lastMessageId,
+            lastMessageAt: data.lastMessageAt?.toDate?.()?.toISOString(),
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+          }
+          callback(chat)
+        }
+      })
+    })
+
+    return () => {
+      unsubscribe1()
+      unsubscribe2()
+    }
   }
 }

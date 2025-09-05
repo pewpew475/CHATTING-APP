@@ -2,45 +2,35 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/components/providers/firebase-auth-provider'
 import { hasCompletedProfile } from '@/lib/profile-storage'
 
 export default function AuthCallback() {
   const router = useRouter()
+  const { user, loading } = useAuth()
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession()
-        
-        if (error) {
-          console.error('Auth callback error:', error)
-          router.push('/auth/signin?error=callback_error')
-          return
-        }
+      if (loading) return
 
-        if (data.session) {
-          // Successfully authenticated, check if profile is completed (async)
-          const profileCompleted = await hasCompletedProfile(data.session.user.id)
-          
-          if (profileCompleted) {
-            router.push('/')
-          } else {
-            // Profile completion now handled via a popup on home
-            router.push('/')
-          }
+      if (user) {
+        // Successfully authenticated, check if profile is completed (async)
+        const profileCompleted = await hasCompletedProfile(user.id)
+        
+        if (profileCompleted) {
+          router.push('/')
         } else {
-          // No session, redirect to sign in
-          router.push('/auth/signin')
+          // Profile completion now handled via a popup on home
+          router.push('/')
         }
-      } catch (error) {
-        console.error('Auth callback error:', error)
-        router.push('/auth/signin?error=callback_error')
+      } else {
+        // No user, redirect to sign in
+        router.push('/auth/signin')
       }
     }
 
     handleAuthCallback()
-  }, [router])
+  }, [user, loading, router])
 
   return (
     <div className="min-h-screen flex items-center justify-center">

@@ -1,5 +1,6 @@
-// User Settings Service - Replaces localStorage with Supabase database
-import { supabase } from './supabase'
+// User Settings Service - Uses Firebase Firestore database
+import { db } from './firebase-db'
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 
 export interface TwoFactorSettings {
   isEnabled: boolean
@@ -31,23 +32,14 @@ export class UserSettingsService {
   // Get user settings by type
   static async getUserSettings<T>(userId: string, settingType: string): Promise<T | null> {
     try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('settings')
-        .eq('user_id', userId)
-        .eq('setting_type', settingType)
-        .single()
+      const settingsRef = doc(db, 'user_settings', `${userId}_${settingType}`)
+      const settingsSnap = await getDoc(settingsRef)
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No settings found
-          return null
-        }
-        console.error(`Error getting ${settingType} settings:`, error)
+      if (!settingsSnap.exists()) {
         return null
       }
 
-      return data?.settings as T || null
+      return settingsSnap.data() as T
     } catch (error) {
       console.error(`Error getting ${settingType} settings:`, error)
       return null
@@ -57,20 +49,8 @@ export class UserSettingsService {
   // Save user settings by type
   static async saveUserSettings<T>(userId: string, settingType: string, settings: T): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-          user_id: userId,
-          setting_type: settingType,
-          settings: settings as any
-        }, {
-          onConflict: 'user_id,setting_type'
-        })
-
-      if (error) {
-        console.error(`Error saving ${settingType} settings:`, error)
-        return { success: false, error: error.message }
-      }
+      const settingsRef = doc(db, 'user_settings', `${userId}_${settingType}`)
+      await setDoc(settingsRef, settings as any)
 
       return { success: true }
     } catch (error) {
@@ -85,16 +65,8 @@ export class UserSettingsService {
   // Delete user settings by type
   static async deleteUserSettings(userId: string, settingType: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('user_settings')
-        .delete()
-        .eq('user_id', userId)
-        .eq('setting_type', settingType)
-
-      if (error) {
-        console.error(`Error deleting ${settingType} settings:`, error)
-        return { success: false, error: error.message }
-      }
+      const settingsRef = doc(db, 'user_settings', `${userId}_${settingType}`)
+      await deleteDoc(settingsRef)
 
       return { success: true }
     } catch (error) {
