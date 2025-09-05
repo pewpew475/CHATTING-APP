@@ -22,12 +22,19 @@ export const uploadImage = async (file: File, userId: string, folder: string = '
     
     console.log('Uploading to Supabase storage:', fileName);
     
-    const { data, error } = await supabase.storage
+    // Add timeout to prevent hanging
+    const uploadPromise = supabase.storage
       .from('images')
       .upload(fileName, file, {
         cacheControl: '3600',
         upsert: false
       });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000);
+    });
+
+    const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
 
     if (error) {
       console.error('Supabase storage upload error:', error);
@@ -58,7 +65,50 @@ export const uploadImage = async (file: File, userId: string, folder: string = '
 };
 
 export const uploadProfileImage = async (file: File, userId: string) => {
-  return uploadImage(file, userId, 'profile-pictures');
+  // Try Supabase storage first
+  const result = await uploadImage(file, userId, 'profile-pictures');
+  
+  if (result.success) {
+    return result;
+  }
+  
+  // Fallback to local API if Supabase fails
+  console.log('Supabase storage failed, trying local API fallback...');
+  return await uploadImageLocal(file, userId);
+};
+
+// Fallback upload using local API
+const uploadImageLocal = async (file: File, userId: string) => {
+  try {
+    console.log('Uploading via local API fallback...');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('Local API upload successful:', result.fileUrl);
+      return {
+        success: true,
+        url: result.fileUrl,
+        path: result.fileName
+      };
+    } else {
+      throw new Error(result.error || 'Local API upload failed');
+    }
+  } catch (error) {
+    console.error('Local API upload error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Local API upload failed'
+    };
+  }
 };
 
 // Test storage bucket access
@@ -73,11 +123,15 @@ export const testStorageAccess = async () => {
     
     if (error) {
       console.error('Storage bucket access error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        error: error
+      });
       return { success: false, error: error.message };
     }
     
-    console.log('Storage bucket access successful');
-    return { success: true };
+    console.log('Storage bucket access successful, data:', data);
+    return { success: true, data };
   } catch (error) {
     console.error('Storage bucket test error:', error);
     return { 
