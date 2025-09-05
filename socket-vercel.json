@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "chat-socket-server",
+  "builds": [
+    {
+      "src": "socket-server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "socket-server.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
