@@ -13,6 +13,7 @@ import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
 import { updateUserProfile } from "@/lib/profile-storage"
 import { hasCompletedProfile } from "@/lib/profile-storage"
+import { getRandomAvatar } from "@/components/providers/firebase-auth-provider"
 
 interface ProfileData {
   realName: string
@@ -94,7 +95,7 @@ export function ProfileCompletionDialog() {
         username: profileData.username.trim(),
         email: profileData.email.trim(),
         bio: profileData.bio?.trim(),
-        profileImageUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture
+        profileImageUrl: user.photoURL || getRandomAvatar()
       })
 
       if (result.success) {
@@ -129,7 +130,7 @@ export function ProfileCompletionDialog() {
           {/* Avatar Section */}
           <div className="flex flex-col items-center space-y-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={user?.user_metadata?.avatar_url || user?.user_metadata?.picture} />
+              <AvatarImage src={user?.photoURL || getRandomAvatar()} />
               <AvatarFallback className="text-lg">
                 {profileData.realName
                   .split(" ")

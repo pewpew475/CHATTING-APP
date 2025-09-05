@@ -1,5 +1,6 @@
 // Username availability checker
-import { supabase } from './supabase'
+import { db } from './firebase-db'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 
 export interface UsernameCheckResult {
   available: boolean
@@ -31,42 +32,24 @@ export async function checkUsernameAvailability(username: string): Promise<Usern
       return { available: false, error: 'This username is reserved' }
     }
 
-    // Check database for existing username
-    // This would be the actual database query in a real implementation
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('username')
-          .eq('username', username.toLowerCase())
-          .maybeSingle()
-
-        if (error) {
-          console.error('Database error checking username:', error)
-          // Handle different error codes
-          if ((error as any).code === 'PGRST205') {
-            console.warn('user_profiles table not found, falling back to mock username check. Please run the database setup.')
-            return mockUsernameCheck(username)
-          } else if ((error as any).code === 'PGRST301') {
-            console.warn('Database access issue (possibly RLS policy), falling back to mock username check. Please check your database setup.')
-            return mockUsernameCheck(username)
-          }
-          return { available: false, error: 'Error checking username availability' }
-        }
-
-        // If data exists, username is taken; if null, available
-        if (data) {
-          return { available: false, error: 'Username is already taken' }
-        }
-
-        return { available: true }
-      } catch (dbError) {
-        console.error('Database connection error:', dbError)
-        // Fall back to mock check if database is not available
-        return mockUsernameCheck(username)
+    // Check database for existing username using Firebase
+    try {
+      const q = query(
+        collection(db, 'user_profiles'),
+        where('username', '==', username.toLowerCase())
+      )
+      
+      const snapshot = await getDocs(q)
+      
+      // If any documents exist, username is taken
+      if (!snapshot.empty) {
+        return { available: false, error: 'Username is already taken' }
       }
-    } else {
-      // Fall back to mock check if Supabase is not configured
+
+      return { available: true }
+    } catch (dbError) {
+      console.error('Database connection error:', dbError)
+      // Fall back to mock check if database is not available
       return mockUsernameCheck(username)
     }
   } catch (error) {

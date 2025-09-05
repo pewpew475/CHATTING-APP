@@ -1,0 +1,42 @@
+[
+  {
+    "id": "TC001",
+    "title": "user signin with valid credentials",
+    "description": "Test the /auth/signin POST endpoint to verify that a user can successfully sign in using valid email and password credentials."
+  },
+  {
+    "id": "TC002",
+    "title": "user signup with valid details",
+    "description": "Test the /auth/signup POST endpoint to ensure a new user can register successfully with valid email, password, realName, and username."
+  },
+  {
+    "id": "TC003",
+    "title": "send text message in chat",
+    "description": "Test the /api/messages POST endpoint to verify that a user can send a text message in a chat by providing valid chatId, content, and type as TEXT."
+  },
+  {
+    "id": "TC004",
+    "title": "search users by email",
+    "description": "Test the /api/friends/search POST endpoint to confirm that users can be searched accurately by their email address."
+  },
+  {
+    "id": "TC005",
+    "title": "send friend request to user",
+    "description": "Test the /api/friends/request POST endpoint to verify that a user can send a friend request to another user by specifying the toUserId and an optional message."
+  },
+  {
+    "id": "TC006",
+    "title": "get user profile information",
+    "description": "Test the /api/profile GET endpoint to ensure that the authenticated user can retrieve their profile information correctly."
+  },
+  {
+    "id": "TC007",
+    "title": "update user profile details",
+    "description": "Test the /api/profile PUT endpoint to verify that a user can update their profile details including realName, username, bio, gender, mobileNumber, and location."
+  },
+  {
+    "id": "TC008",
+    "title": "establish socketio connection",
+    "description": "Test the /api/socketio GET endpoint to confirm that a Socket.IO connection can be established successfully for real-time events."
+  }
+]

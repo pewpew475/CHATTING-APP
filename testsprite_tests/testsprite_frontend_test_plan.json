@@ -1,0 +1,436 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Sign Up with Email and Password",
+    "description": "Verify that a new user can successfully sign up using email and password with valid inputs.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the sign-up page."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid email, password, real name, and username."
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-up form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the account is created and user is authenticated."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that user is redirected to the main application/dashboard."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Sign Up with Existing Email",
+    "description": "Verify the system prevents sign-ups with an email that is already registered.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the sign-up page."
+      },
+      {
+        "type": "action",
+        "description": "Enter an email that is already registered, along with password, real name, and username."
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-up form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an error message is displayed indicating the email is already in use."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "User Sign In with Email and Password",
+    "description": "Check successful sign-in process using valid email and password credentials.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the sign-in page."
+      },
+      {
+        "type": "action",
+        "description": "Input valid registered email and password."
+      },
+      {
+        "type": "action",
+        "description": "Click the sign-in button."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is authenticated and redirected to the main application."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "User Sign In with Incorrect Password",
+    "description": "Verify sign-in fails when an incorrect password is provided for a registered email.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the sign-in page."
+      },
+      {
+        "type": "action",
+        "description": "Input valid registered email and incorrect password."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to sign in."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an appropriate error message is displayed for authentication failure."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "User Sign In with Google OAuth",
+    "description": "Verify user can sign in successfully using Google OAuth provider.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the sign-in page."
+      },
+      {
+        "type": "action",
+        "description": "Click on the 'Sign in with Google' button."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the Google OAuth pop-up appears and user can authenticate."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user is authenticated and redirected to the main app."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Search Friends by Valid Email",
+    "description": "Verify users can search for friends by a valid email and receive correct user search results.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Sign in and navigate to the friend search section."
+      },
+      {
+        "type": "action",
+        "description": "Input a valid existing user's email address in the search input."
+      },
+      {
+        "type": "action",
+        "description": "Submit the search."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the search results display matching user(s) with correct email."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Search Friends with Non-Existent Email",
+    "description": "Test that searching with an email not in the system returns no results and appropriate message.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to friend search."
+      },
+      {
+        "type": "action",
+        "description": "Search for an invalid or non-existent email."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no users found message is displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Send Real-Time Friend Request",
+    "description": "Verify user can send a friend request in real-time and recipient receives notification instantly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Search for a user by email and send a friend request."
+      },
+      {
+        "type": "assertion",
+        "description": "Check the friend request is sent successfully."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the recipient receives a real-time notification of the friend request."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Receive and Accept Friend Request with Real-Time Update",
+    "description": "Verify friend request recipient can accept the request and relevant user interfaces update in real time.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a user who received a friend request."
+      },
+      {
+        "type": "action",
+        "description": "Accept the friend request on the friend requests panel."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm friend request status updates to accepted."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that both sender and recipient friend lists update immediately."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Reject Friend Request and Real-Time UI Synchronization",
+    "description": "Verify that rejecting a friend request removes the request and both users receive real-time UI updates.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Receive a friend request."
+      },
+      {
+        "type": "action",
+        "description": "Reject the friend request."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure the friend request is removed from the recipient's UI."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that the sender's interface updates to reflect the rejection in real time."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Send Text Message in Real-Time Chat",
+    "description": "Verify user can send a plain text message in a chat and the recipient receives it instantly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open a chat with a friend."
+      },
+      {
+        "type": "action",
+        "description": "Type a text message and send it."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the message appears in sender's chat window."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the recipient's chat window receives the message instantly."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Send Emoji in Real-Time Chat",
+    "description": "Validate that the emoji picker allows sending emojis in chat and recipient sees them instantly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the emoji picker in a chat with a friend."
+      },
+      {
+        "type": "action",
+        "description": "Select and send one or multiple emojis."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify emojis display correctly in sender's chat window."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm recipient receives and sees the emojis without delay."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Profile Viewing with Gender-Neutral Avatar",
+    "description": "Verify user can view their profile including a default gender-neutral avatar when no gender is selected.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Sign in and navigate to the profile page with no gender specified."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify profile fields like username, bio, and profile avatar are displayed."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the avatar shown is a gender-neutral default avatar."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Update User Profile Information Successfully",
+    "description": "Validate that user can update profile fields (real name, username, bio, gender, location, mobile number) and changes persist.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the profile edit dialog."
+      },
+      {
+        "type": "action",
+        "description": "Change one or more profile fields with valid values."
+      },
+      {
+        "type": "action",
+        "description": "Save the changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the updated profile information is saved and reflects on profile page."
+      },
+      {
+        "type": "assertion",
+        "description": "Reload the profile page and confirm updates persist."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Profile Completion Dialog Triggers on Incomplete Profile",
+    "description": "Verify the profile completion prompt appears when user profile fields are incomplete.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Sign in with a user having an incomplete profile (missing required fields)."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that the profile completion dialog is presented to the user."
+      },
+      {
+        "type": "action",
+        "description": "Fill in the missing information and save."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dialog no longer appears on subsequent logins."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Real-Time Socket Connection Establishment",
+    "description": "Verify that the client successfully establishes a real-time socket connection to the server.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load the web application and initiate the socket connection."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the socket connects without error."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the connection status updates accordingly in the UI or logs."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Real-Time User Presence Update",
+    "description": "Verify that user presence status (online/offline) updates in real-time across all active sessions.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Sign in with the same user on two different devices or browser tabs."
+      },
+      {
+        "type": "action",
+        "description": "Sign out or close one session."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the remaining session receives a real-time update reflecting the other session closure."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Handle Invalid Socket Events Gracefully",
+    "description": "Verify the system handles invalid or malformed socket events without crashing or unexpected behavior.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate sending invalid or malformed data through socket events from client or server."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that the socket connection remains stable."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify proper error handling or logging occurs."
+      }
+    ]
+  }
+]

@@ -62,7 +62,7 @@ export function ProfileDialog({ children }: ProfileDialogProps) {
         } else {
           // Use Supabase user data as fallback
           setProfileData({
-            realName: user.user_metadata?.full_name || user.user_metadata?.name || "",
+            realName: user.displayName || "",
             username: user.email?.split('@')[0] || "",
             email: user.email || "",
             bio: "",

@@ -140,7 +140,7 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     }
   }
 
-  const signOut = async (): Promise<{ success: boolean; error?: string }> => {
+  const signOutUser = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Signing out user:', user?.uid)
       await signOut(auth)
@@ -213,7 +213,7 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     signInWithEmail,
     signInWithGoogle,
     signUpWithEmail,
-    signOut,
+    signOut: signOutUser,
     deleteAccount,
     updateUserProfile,
   }

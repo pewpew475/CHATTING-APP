@@ -150,7 +150,7 @@ export const deleteImage = async (path: string) => {
 }
 
 // Get download URL for a file (if needed)
-export const getDownloadURL = async (path: string) => {
+export const getFileDownloadURL = async (path: string) => {
   try {
     const fileRef = ref(storage, path)
     const url = await getDownloadURL(fileRef)

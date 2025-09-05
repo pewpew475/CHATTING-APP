@@ -161,7 +161,7 @@ export class MessagingService {
       }
 
       // 5) Compose result
-      return chatRows.map((chat: any) => {
+      const chats = chatRows.map((chat: any) => {
         const otherId = chat.user1Id === userId ? chat.user2Id : chat.user1Id
         const profile = userIdToProfile.get(otherId)
         const last = chat.lastMessageId ? messagesById.get(chat.lastMessageId) : undefined
@@ -210,13 +210,13 @@ export class MessagingService {
   }
 
   // Get messages for a chat
-  static async getChatMessages(chatId: string, limit: number = 50, offset: number = 0): Promise<Message[]> {
+  static async getChatMessages(chatId: string, messageLimit: number = 50, offset: number = 0): Promise<Message[]> {
     try {
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', chatId),
         orderBy('createdAt', 'desc'),
-        limit(limit)
+        limit(messageLimit)
       )
 
       const snapshot = await getDocs(q)
