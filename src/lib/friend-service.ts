@@ -97,7 +97,7 @@ export class FriendService {
         .eq('friend_id', currentUserId)
         .limit(1)
 
-      const isFriend = (friendsA && friendsA.length > 0) || (friendsB && friendsB.length > 0)
+      const isFriend = Boolean((friendsA && friendsA.length > 0) || (friendsB && friendsB.length > 0))
 
       // Determine pending request status
       const { data: outgoingReq } = await supabase
