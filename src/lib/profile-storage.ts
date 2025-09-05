@@ -13,6 +13,7 @@ export interface UserProfile {
   dateOfBirth?: string
   profileImageUrl?: string
   profileImagePath?: string
+  isDeleted?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -204,6 +205,16 @@ export const deleteUserProfile = async (userId: string): Promise<{ success: bool
     
     if (supabase) {
       try {
+        // First mark user as deleted before deleting profile
+        const { error: markDeletedError } = await supabase
+          .from('user_profiles')
+          .update({ isDeleted: true })
+          .eq('user_id', userId)
+
+        if (markDeletedError) {
+          console.error('Error marking user as deleted:', markDeletedError)
+        }
+
         // Delete user profile
         const { error: profileError } = await supabase
           .from('user_profiles')

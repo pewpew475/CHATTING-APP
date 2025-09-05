@@ -96,20 +96,30 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       console.log('Existing profile found:', !!existingProfile)
       
       if (!existingProfile) {
-        console.log('No existing profile found - user may have been deleted')
-        // If no profile exists, sign out the user as their data was deleted
-        console.log('Signing out user due to missing profile data')
-        await supabase.auth.signOut()
-        return
+        console.log('No existing profile found - creating new profile for user')
+        // Create a new profile for the user
+        const profileData = {
+          userId: user.id,
+          email: user.email || '',
+          realName: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+          username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+          profileImageUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        }
+
+        const result = await saveUserProfile(profileData)
+        if (result.success) {
+          console.log('Profile created successfully for new user')
+        } else {
+          console.error('Failed to create profile:', result.error)
+        }
       } else {
         console.log('Profile exists, user is authenticated')
         // Profile exists and user is authenticated
       }
     } catch (error) {
       console.error('Error handling user sign in:', error)
-      // If there's an error checking profile, sign out for safety
-      console.log('Error checking profile, signing out user')
-      await supabase.auth.signOut()
+      // If there's an error, don't sign out - just log the error
+      console.log('Error handling user sign in, but continuing')
     }
   }
 
