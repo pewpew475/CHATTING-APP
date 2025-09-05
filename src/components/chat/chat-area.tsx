@@ -177,14 +177,15 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
                     .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              {isUserOnline(otherUser.id) && (
+              {/* Online indicator - disabled in Firebase-only mode */}
+              {false && (
                 <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
               )}
             </div>
             <div>
               <h3 className="font-semibold">{otherUser.realName}</h3>
               <p className="text-sm text-muted-foreground">
-                {isOtherUserTyping ? "Typing..." : isUserOnline(otherUser.id) ? "Online" : "Offline"}
+                {isOtherUserTyping ? "Typing..." : "Offline"}
               </p>
             </div>
           </div>

@@ -54,6 +54,39 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
 
     console.log('Initializing socket connection for user:', user.id)
 
+    // For now, disable Socket.IO and use Firebase-only mode
+    console.log('Using Firebase-only mode for real-time features')
+    setIsConnected(false) // Indicate we're not using Socket.IO
+    
+    // Set user as online in Firebase
+    const setUserOnline = async () => {
+      try {
+        const { FriendService } = await import('@/lib/friend-service')
+        await FriendService.updateOnlineStatus(user.id, true)
+        console.log('User online status set in Firebase')
+      } catch (error) {
+        console.error('Error setting user online status:', error)
+      }
+    }
+    
+    setUserOnline()
+
+    // Return cleanup function
+    return () => {
+      const setUserOffline = async () => {
+        try {
+          const { FriendService } = await import('@/lib/friend-service')
+          await FriendService.updateOnlineStatus(user.id, false)
+          console.log('User offline status set in Firebase')
+        } catch (error) {
+          console.error('Error setting user offline status:', error)
+        }
+      }
+      setUserOffline()
+    }
+
+    // Comment out Socket.IO for now
+    /*
     const socket = io({
       path: '/api/socketio',
       autoConnect: true,
@@ -155,8 +188,9 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
 
     return () => {
       console.log('Cleaning up socket connection')
-      socket.disconnect()
+      // socket.disconnect() // Commented out for Firebase-only mode
     }
+    */
   }, [user?.id, autoConnect])
 
   const sendMessage = (data: {
@@ -167,50 +201,52 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     fileName?: string
     fileSize?: number
   }) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('send_message', data)
-    }
+    // In Firebase-only mode, messages are sent through MessagingService
+    // This function is kept for compatibility but doesn't use Socket.IO
+    console.log('Message sending handled by MessagingService (Firebase-only mode)')
   }
 
   const sendTyping = (data: { chatId: string; isTyping: boolean }) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('typing', data)
-    }
+    // In Firebase-only mode, typing indicators are not supported
+    console.log('Typing indicators not supported in Firebase-only mode')
   }
 
   const markMessageAsRead = (messageId: string) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('mark_read', { messageId })
-    }
+    // In Firebase-only mode, read receipts are handled by MessagingService
+    console.log('Read receipts handled by MessagingService (Firebase-only mode)')
   }
 
-  const isUserOnline = (userId: string) => {
-    return onlineUsers.has(userId)
+  const isUserOnline = async (userId: string) => {
+    // In Firebase-only mode, check online status from Firebase
+    try {
+      const { FriendService } = await import('@/lib/friend-service')
+      // This would need to be implemented to check Firebase for online status
+      // For now, return false as we don't have real-time online status
+      return false
+    } catch (error) {
+      console.error('Error checking user online status:', error)
+      return false
+    }
   }
 
   const isUserTyping = (userId: string, chatId: string) => {
-    return typingUsers.get(`${userId}_${chatId}`) || false
+    // In Firebase-only mode, typing indicators are not supported
+    return false
   }
 
   const sendFriendRequest = (toUserId: string) => {
-    if (socketRef.current && user?.id) {
-      socketRef.current.emit('send_friend_request', {
-        fromUserId: user.id,
-        toUserId: toUserId
-      })
-    }
+    // In Firebase-only mode, friend requests are handled by FriendService
+    console.log('Friend requests handled by FriendService (Firebase-only mode)')
   }
 
   const acceptFriendRequest = (requestId: string) => {
-    if (socketRef.current) {
-      socketRef.current.emit('accept_friend_request', { requestId })
-    }
+    // In Firebase-only mode, friend request acceptance is handled by FriendService
+    console.log('Friend request acceptance handled by FriendService (Firebase-only mode)')
   }
 
   const rejectFriendRequest = (requestId: string) => {
-    if (socketRef.current) {
-      socketRef.current.emit('reject_friend_request', { requestId })
-    }
+    // In Firebase-only mode, friend request rejection is handled by FriendService
+    console.log('Friend request rejection handled by FriendService (Firebase-only mode)')
   }
 
   return {

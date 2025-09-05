@@ -11,6 +11,10 @@ const hostname = '0.0.0.0';
 // Custom server with Socket.IO integration
 async function createCustomServer() {
   try {
+    console.log('Starting custom server...')
+    console.log('Environment:', dev ? 'development' : 'production')
+    console.log('Port:', currentPort)
+    
     // Create Next.js app
     const nextApp = next({ 
       dev,
@@ -19,7 +23,9 @@ async function createCustomServer() {
       conf: dev ? undefined : { distDir: './.next' }
     });
 
+    console.log('Preparing Next.js app...')
     await nextApp.prepare();
+    console.log('Next.js app prepared successfully')
     const handle = nextApp.getRequestHandler();
 
     // Create HTTP server that will handle both Next.js and Socket.IO
@@ -43,9 +49,10 @@ async function createCustomServer() {
       allowEIO3: true
     });
 
+    console.log('Setting up Socket.IO handlers...')
     setupSocket(io);
 
-    console.log('Socket.IO server configured');
+    console.log('Socket.IO server configured successfully');
 
     // Start the server with auto port fallback
     let port = currentPort;
@@ -73,6 +80,23 @@ async function createCustomServer() {
     });
 
     tryListen();
+
+    // Keep the process alive
+    process.on('SIGINT', () => {
+      console.log('\nShutting down server...');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGTERM', () => {
+      console.log('\nShutting down server...');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
 
   } catch (err) {
     console.error('Server startup error:', err);
