@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { hasCompletedProfileSync } from '@/lib/profile-storage'
+import { hasCompletedProfile } from '@/lib/profile-storage'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -20,8 +20,8 @@ export default function AuthCallback() {
         }
 
         if (data.session) {
-          // Successfully authenticated, check if profile is completed
-          const profileCompleted = hasCompletedProfileSync(data.session.user.id)
+          // Successfully authenticated, check if profile is completed (async)
+          const profileCompleted = await hasCompletedProfile(data.session.user.id)
           
           if (profileCompleted) {
             router.push('/')

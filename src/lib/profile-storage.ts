@@ -23,8 +23,19 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
     const now = new Date().toISOString()
     const existingProfile = await getUserProfile(profileData.userId)
     
-    const profile: UserProfile = {
-      ...profileData,
+    // Merge with existing to avoid overwriting fields with null/undefined
+    const merged: UserProfile = {
+      userId: profileData.userId,
+      realName: profileData.realName ?? existingProfile?.realName ?? '',
+      username: profileData.username ?? existingProfile?.username ?? '',
+      email: profileData.email ?? existingProfile?.email ?? '',
+      bio: profileData.bio ?? existingProfile?.bio,
+      gender: profileData.gender ?? existingProfile?.gender,
+      mobileNumber: profileData.mobileNumber ?? existingProfile?.mobileNumber,
+      location: profileData.location ?? existingProfile?.location,
+      dateOfBirth: profileData.dateOfBirth ?? existingProfile?.dateOfBirth,
+      profileImageUrl: profileData.profileImageUrl ?? existingProfile?.profileImageUrl,
+      profileImagePath: profileData.profileImagePath ?? existingProfile?.profileImagePath,
       createdAt: existingProfile?.createdAt || now,
       updatedAt: now
     }
@@ -34,20 +45,20 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
     // Save to Supabase database
     if (supabase) {
       try {
-        const dbProfile = {
-          user_id: profile.userId,
-          username: profile.username,
-          real_name: profile.realName,
-          email: profile.email,
-          bio: profile.bio || null,
-          gender: profile.gender || null,
-          mobile_number: profile.mobileNumber || null,
-          location: profile.location || null,
-          date_of_birth: profile.dateOfBirth || null,
-          profile_image_url: profile.profileImageUrl || null,
-          profile_image_path: profile.profileImagePath || null,
-          updated_at: profile.updatedAt
+        const dbProfile: Record<string, any> = {
+          user_id: merged.userId,
+          username: merged.username,
+          real_name: merged.realName,
+          email: merged.email,
+          updated_at: merged.updatedAt
         }
+        if (merged.bio !== undefined) dbProfile.bio = merged.bio
+        if (merged.gender !== undefined) dbProfile.gender = merged.gender
+        if (merged.mobileNumber !== undefined) dbProfile.mobile_number = merged.mobileNumber
+        if (merged.location !== undefined) dbProfile.location = merged.location
+        if (merged.dateOfBirth !== undefined) dbProfile.date_of_birth = merged.dateOfBirth
+        if (merged.profileImageUrl !== undefined) dbProfile.profile_image_url = merged.profileImageUrl
+        if (merged.profileImagePath !== undefined) dbProfile.profile_image_path = merged.profileImagePath
 
         const { error } = await supabase
           .from('user_profiles')

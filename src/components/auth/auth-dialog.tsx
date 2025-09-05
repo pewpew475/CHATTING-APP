@@ -20,8 +20,7 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [isLoading, setIsLoading] = useState(false)
-  const [showUserForm, setShowUserForm] = useState(false)
-  const [googleUserData, setGoogleUserData] = useState<any>(null)
+  // Removed legacy post-Google basic info form; profile completion handled elsewhere
   
   // Sign in form state
   const [signInData, setSignInData] = useState({
@@ -134,8 +133,6 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
   const resetForms = () => {
     setSignInData({ email: "", password: "" })
     setSignUpData({ email: "", password: "", confirmPassword: "", realName: "", username: "" })
-    setShowUserForm(false)
-    setGoogleUserData(null)
   }
 
   const handleClose = () => {
@@ -143,57 +140,7 @@ export function AuthDialog({ isOpen, onClose, defaultTab = "signin" }: AuthDialo
     onClose()
   }
 
-  if (showUserForm) {
-    return (
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">F</span>
-              </div>
-              Complete Your Profile
-            </DialogTitle>
-            <DialogDescription>
-              Please provide some additional details to complete your Fellowz profile
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={handleUserDetailsSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="realName">Full Name</Label>
-              <Input
-                id="realName"
-                value={signUpData.realName}
-                onChange={(e) => setSignUpData(prev => ({ ...prev, realName: e.target.value }))}
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={signUpData.username}
-                onChange={(e) => setSignUpData(prev => ({ ...prev, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') }))}
-                placeholder="Choose a username"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                This will be your unique identifier on Fellowz
-              </p>
-            </div>
-            
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-              Complete Profile
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-    )
-  }
+  // Removed legacy showUserForm UI
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

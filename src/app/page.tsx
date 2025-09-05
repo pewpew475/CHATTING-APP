@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Icons } from "@/components/ui/icons"
 import { ChatLayout } from "@/components/chat/chat-layout"
-import { getUserProfile, hasCompletedProfileSync } from "@/lib/profile-storage"
+import { getUserProfile } from "@/lib/profile-storage"
 import { ProfileCompletionDialog } from "@/components/profile/profile-completion-dialog"
 
 export default function Home() {
