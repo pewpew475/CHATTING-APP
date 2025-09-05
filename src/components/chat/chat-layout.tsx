@@ -60,6 +60,24 @@ export function ChatLayout() {
     loadChats()
   }, [user?.id])
 
+  // Handle chat selection with refresh if needed
+  const handleChatSelect = async (chatId: string) => {
+    console.log('Chat selected:', chatId)
+    setSelectedChat(chatId)
+    
+    // Check if the selected chat exists in our current chats
+    const chatExists = chats.find(chat => chat.id === chatId)
+    if (!chatExists) {
+      console.log('Selected chat not found in current chats, refreshing...')
+      try {
+        const userChats = await MessagingService.getUserChats(user.id)
+        setChats(userChats)
+      } catch (error) {
+        console.error("Error refreshing chats:", error)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -77,6 +95,10 @@ export function ChatLayout() {
     ? chats.find(chat => chat.id === selectedChat)
     : null
 
+  console.log('Chat Layout - selectedChat:', selectedChat)
+  console.log('Chat Layout - selectedChatData:', selectedChatData)
+  console.log('Chat Layout - chats:', chats)
+
   // Mobile view: show either sidebar or chat area, not both
   if (isMobile) {
     return (
@@ -86,7 +108,7 @@ export function ChatLayout() {
             chats={chats}
             selectedChat={selectedChat}
             onChatSelect={(chatId) => {
-              setSelectedChat(chatId)
+              handleChatSelect(chatId)
               setSidebarOpen(false)
             }}
             isOpen={sidebarOpen}
@@ -144,7 +166,7 @@ export function ChatLayout() {
       <ChatSidebar
         chats={chats}
         selectedChat={selectedChat}
-        onChatSelect={setSelectedChat}
+        onChatSelect={handleChatSelect}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         currentUserId={user.id}
