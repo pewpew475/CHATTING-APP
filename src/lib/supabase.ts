@@ -10,7 +10,17 @@ console.log('Supabase config:', {
   key: supabaseKey ? 'Set' : 'Missing' 
 });
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'chatting-app'
+    }
+  }
+});
 
 // Image upload utility functions
 export const uploadImage = async (file: File, userId: string, folder: string = 'chat-images') => {
@@ -27,13 +37,15 @@ export const uploadImage = async (file: File, userId: string, folder: string = '
       .from('images')
       .upload(fileName, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: false,
+        contentType: file.type
       });
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000);
     });
 
+    console.log('Starting upload with timeout...');
     const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
 
     if (error) {
@@ -65,16 +77,32 @@ export const uploadImage = async (file: File, userId: string, folder: string = '
 };
 
 export const uploadProfileImage = async (file: File, userId: string) => {
-  // Try Supabase storage first
+  // First check if storage bucket is accessible
+  const storageTest = await testStorageAccess();
+  if (!storageTest.success) {
+    console.error('Storage bucket not accessible:', storageTest.error);
+    return {
+      success: false,
+      error: `Storage bucket not accessible: ${storageTest.error}`
+    };
+  }
+  
+  // Try Supabase storage
   const result = await uploadImage(file, userId, 'profile-pictures');
   
   if (result.success) {
     return result;
   }
   
-  // Fallback to local API if Supabase fails
-  console.log('Supabase storage failed, trying local API fallback...');
-  return await uploadImageLocal(file, userId);
+  // Only use local API fallback in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Supabase storage failed, trying local API fallback...');
+    return await uploadImageLocal(file, userId);
+  }
+  
+  // In production, return the Supabase error
+  console.error('Supabase storage failed in production, no fallback available');
+  return result;
 };
 
 // Fallback upload using local API
