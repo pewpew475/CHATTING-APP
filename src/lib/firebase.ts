@@ -14,6 +14,12 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Validate Firebase configuration
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error('Firebase configuration is missing required fields');
+  throw new Error('Firebase configuration is incomplete');
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
