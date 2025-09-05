@@ -67,7 +67,7 @@ export function ChatLayout() {
     
     // Check if the selected chat exists in our current chats
     const chatExists = chats.find(chat => chat.id === chatId)
-    if (!chatExists) {
+    if (!chatExists && user?.id) {
       console.log('Selected chat not found in current chats, refreshing...')
       try {
         const userChats = await MessagingService.getUserChats(user.id)
