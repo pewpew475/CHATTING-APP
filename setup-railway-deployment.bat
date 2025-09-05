@@ -53,3 +53,6 @@ echo 4. Get the Railway URL and update your frontend
 echo.
 echo 🔗 The backend folder is ready for Railway deployment!
 pause
+
+
+

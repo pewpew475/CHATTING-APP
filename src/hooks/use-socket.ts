@@ -59,7 +59,7 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
 
     // Connect to standalone Socket.IO server
     const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-socket-server.vercel.app' // Replace with your deployed Socket.IO server URL
+      ? 'https://socketio-server-production-475.up.railway.app' // Railway Socket.IO server
       : 'http://localhost:4000'
     
     const socket = io(socketUrl, {

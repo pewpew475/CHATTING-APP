@@ -178,3 +178,4 @@ npx vercel --prod
 This setup gives you the best of both worlds:
 - **Vercel**: Fast frontend delivery
 - **Railway**: Reliable WebSocket server
+
