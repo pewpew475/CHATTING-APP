@@ -34,11 +34,15 @@ export function ProfileCompletionDialog() {
 
   useEffect(() => {
     const checkProfileCompletion = async () => {
+      console.log('ProfileCompletionDialog: Checking for user:', user?.id, user?.email)
+      
       if (user?.id) {
         // Check if user needs to complete profile
         const needsProfile = !(await hasCompletedProfile(user.id))
+        console.log('ProfileCompletionDialog: Needs profile completion:', needsProfile)
         
         if (needsProfile) {
+          console.log('ProfileCompletionDialog: Opening dialog for user:', user.email)
           // Pre-fill with Supabase user data
           setProfileData({
             realName: user.user_metadata?.full_name || user.user_metadata?.name || "",
@@ -47,7 +51,11 @@ export function ProfileCompletionDialog() {
             bio: ""
           })
           setIsOpen(true)
+        } else {
+          console.log('ProfileCompletionDialog: Profile already completed, not showing dialog')
         }
+      } else {
+        console.log('ProfileCompletionDialog: No user, not checking profile')
       }
     }
     

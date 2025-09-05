@@ -93,6 +93,8 @@ export const saveUserProfile = async (profileData: Omit<UserProfile, 'createdAt'
 // Get profile from localStorage and database
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
+    console.log('getUserProfile: Fetching profile for user:', userId)
+    
     // First try to get from database
     if (supabase) {
       try {
@@ -107,7 +109,9 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
           if (error.code === 'PGRST205') {
             console.warn('user_profiles table not found. Please run the database setup.')
           }
+          return null
         } else if (data) {
+          console.log('getUserProfile: Found profile in database:', data.username, data.real_name)
           // Convert database format to UserProfile format
           const profile: UserProfile = {
             userId: data.user_id,
@@ -126,6 +130,8 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
           }
           
           return profile
+        } else {
+          console.log('getUserProfile: No profile found in database for user:', userId)
         }
       } catch (dbError) {
         console.error('Database connection error:', dbError)

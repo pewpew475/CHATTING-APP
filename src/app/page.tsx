@@ -16,8 +16,14 @@ export default function Home() {
 
   // Handle client-side hydration
   useEffect(() => {
+    console.log('Home: Setting isClient to true')
     setIsClient(true)
   }, [])
+
+  // Debug user state changes
+  useEffect(() => {
+    console.log('Home: User state changed - user:', user?.id, 'loading:', loading, 'isClient:', isClient)
+  }, [user, loading, isClient])
 
   // Remove redirect-based profile setup. A lightweight dialog will handle completion.
   useEffect(() => {
@@ -32,7 +38,7 @@ export default function Home() {
     router.push('/auth/signup')
   }
 
-  if (loading) {
+  if (loading || !isClient) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
         <Icons.spinner className="h-8 w-8 animate-spin text-purple-600" />

@@ -24,12 +24,36 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error getting session:', error)
+        }
+        
+        if (mounted) {
+          setSession(session)
+          setUser(session?.user ?? null)
+          setLoading(false)
+          
+          // Handle user sign in if session exists
+          if (session?.user) {
+            await handleUserSignIn(session.user)
+          }
+        }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    getInitialSession()
 
     // Listen for auth changes
     const {
@@ -37,25 +61,34 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Supabase auth state changed:', event, session?.user?.email)
       
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+      if (mounted) {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
 
-      // Handle user registration/login
-      if (event === 'SIGNED_IN' && session?.user) {
-        await handleUserSignIn(session.user)
+        // Handle user registration/login
+        if (event === 'SIGNED_IN' && session?.user) {
+          await handleUserSignIn(session.user)
+        }
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleUserSignIn = async (user: User) => {
     try {
+      console.log('Handling user sign in for:', user.id, user.email)
+      
       // Check if user profile exists
       const existingProfile = await getUserProfile(user.id)
+      console.log('Existing profile found:', !!existingProfile)
       
       if (!existingProfile) {
+        console.log('Creating basic profile for user:', user.id)
         // Create basic profile from auth data
         const profileData = {
           userId: user.id,
@@ -65,7 +98,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           profileImageUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture,
         }
 
-        await saveUserProfile(profileData)
+        const result = await saveUserProfile(profileData)
+        console.log('Profile creation result:', result)
       }
     } catch (error) {
       console.error('Error handling user sign in:', error)
