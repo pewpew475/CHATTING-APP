@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SupabaseAuthProvider } from "@/components/providers/supabase-auth-provider";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 ;
 
 const geistSans = Geist({
@@ -47,6 +49,8 @@ export default function RootLayout({
         <SupabaseAuthProvider>
           {children}
           <Toaster />
+          <Analytics />
+          <SpeedInsights />
         </SupabaseAuthProvider>
       </body>
     </html>
