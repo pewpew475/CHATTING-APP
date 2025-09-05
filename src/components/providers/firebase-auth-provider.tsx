@@ -115,34 +115,27 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     }
   }
 
+  // Helper function to detect Edge browser
+  const isEdgeBrowser = (): boolean => {
+    if (typeof window === 'undefined') return false
+    return /Edg\//.test(navigator.userAgent) || /Edge\//.test(navigator.userAgent)
+  }
+
+  // Helper function to detect Firefox browser
+  const isFirefoxBrowser = (): boolean => {
+    if (typeof window === 'undefined') return false
+    return /Firefox\//.test(navigator.userAgent)
+  }
+
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       const provider = new GoogleAuthProvider()
       
-      // Try popup first, fallback to redirect if popup fails
-      try {
-        await signInWithPopup(auth, provider)
-        return { success: true }
-      } catch (popupError: any) {
-        console.warn('Popup authentication failed, trying redirect:', popupError.message)
-        
-        // If popup fails due to COOP or other popup-blocking issues, use redirect
-        if (popupError.code === 'auth/popup-blocked' || 
-            popupError.code === 'auth/popup-closed-by-user' ||
-            popupError.message?.includes('Cross-Origin-Opener-Policy') ||
-            popupError.message?.includes('window.closed') ||
-            popupError.message?.includes('COOP')) {
-          
-          console.log('Using redirect authentication due to popup issues')
-          await signInWithRedirect(auth, provider)
-          // Note: The redirect will handle the authentication flow
-          // The user will be redirected back to the app after authentication
-          return { success: true }
-        }
-        
-        // Re-throw other popup errors
-        throw popupError
-      }
+      // Use redirect authentication for all browsers to avoid COOP issues
+      // This provides a more reliable and consistent experience across all browsers
+      console.log('Using redirect authentication for reliable cross-browser compatibility')
+      await signInWithRedirect(auth, provider)
+      return { success: true }
     } catch (error: any) {
       console.error('Google sign in error:', error)
       return { 

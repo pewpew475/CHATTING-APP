@@ -17,12 +17,12 @@ export default function SignUpPage() {
   const handleGoogleAuth = async () => {
     try {
       setIsLoading(true)
-      toast.success("Starting Google authentication...")
+      toast.info("Redirecting to Google for secure authentication...")
       
       const result = await signInWithGoogle()
       
       if (result.success) {
-        toast.info("Authentication successful! Redirecting...")
+        toast.info("You'll be redirected back after signing in")
         // After successful Google auth, user will be redirected back; profile popup will show on home
       } else {
         toast.error(result.error || "Authentication failed. Please try again.")
