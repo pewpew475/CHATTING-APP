@@ -78,15 +78,25 @@ export function ChatSidebar({
     }
   }
 
-  const handleFriendSelect = (friend: { id: string }) => {
-    // Find or create chat with this friend
-    const existingChat = chats.find(chat => chat.otherUser?.id === friend.id)
-    if (existingChat) {
-      onChatSelect(existingChat.id)
-    } else {
-      // Create new chat (mock implementation)
-      const newChatId = `chat_${currentUserId}_${friend.id}`
-      onChatSelect(newChatId)
+  const handleFriendSelect = async (friend: { id: string }) => {
+    try {
+      // Find or create chat with this friend
+      const existingChat = chats.find(chat => chat.otherUser?.id === friend.id)
+      if (existingChat) {
+        onChatSelect(existingChat.id)
+      } else {
+        // Create new chat using MessagingService
+        const { MessagingService } = await import('@/lib/messaging-service')
+        const result = await MessagingService.getOrCreateChat(currentUserId, friend.id)
+        
+        if (result.success && result.chatId) {
+          onChatSelect(result.chatId)
+        } else {
+          console.error('Failed to create chat:', result.error)
+        }
+      }
+    } catch (error) {
+      console.error('Error handling friend selection:', error)
     }
   }
 

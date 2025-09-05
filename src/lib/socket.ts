@@ -32,37 +32,56 @@ export const setupSocket = (io: Server) => {
       try {
         console.log('Authenticating user:', data.userId);
         
-        // For now, skip database verification and allow connection
-        // In production, you would verify the user exists and token is valid
         if (data.userId) {
           // Store user socket mapping
           onlineUsers.set(data.userId, socket.id);
           socket.userId = data.userId;
           
+          // Update user online status in Firebase
+          try {
+            const { FriendService } = await import('./friend-service');
+            await FriendService.updateOnlineStatus(data.userId, true);
+          } catch (error) {
+            console.error('Error updating online status:', error);
+          }
+          
           // Join user to their personal room for direct messages
           socket.join(`user_${data.userId}`);
 
-          // Mock joining chat rooms (in production, get from database)
-          const mockChatIds = ['chat_1', 'chat_2', 'chat_3'];
-          mockChatIds.forEach(chatId => {
-            socket.join(chatId);
-          });
+          // Get user's actual chat rooms from Firebase
+          try {
+            const { MessagingService } = await import('./messaging-service');
+            const userChats = await MessagingService.getUserChats(data.userId);
+            const chatIds = userChats.map(chat => chat.id);
+            
+            chatIds.forEach(chatId => {
+              socket.join(chatId);
+            });
 
-          // Notify friends that user is online
-          socket.broadcast.emit('user_status', {
-            userId: data.userId,
-            isOnline: true,
-            lastSeen: new Date()
-          } as UserStatus);
+            // Notify friends that user is online
+            socket.broadcast.emit('user_status', {
+              userId: data.userId,
+              isOnline: true,
+              lastSeen: new Date()
+            } as UserStatus);
 
-          // Send authentication success
-          socket.emit('authenticated', { 
-            success: true, 
-            userId: data.userId,
-            joinedRooms: mockChatIds.length + 1 
-          });
+            // Send authentication success
+            socket.emit('authenticated', { 
+              success: true, 
+              userId: data.userId,
+              joinedRooms: chatIds.length + 1 
+            });
 
-          console.log(`User ${data.userId} authenticated and joined rooms`);
+            console.log(`User ${data.userId} authenticated and joined ${chatIds.length} chat rooms`);
+          } catch (error) {
+            console.error('Error loading user chats:', error);
+            // Fallback to basic authentication
+            socket.emit('authenticated', { 
+              success: true, 
+              userId: data.userId,
+              joinedRooms: 1 
+            });
+          }
         } else {
           socket.emit('auth_error', { message: 'Invalid user ID' });
           socket.disconnect();
@@ -158,6 +177,14 @@ export const setupSocket = (io: Server) => {
       if (socket.userId) {
         // Remove from online users
         onlineUsers.delete(socket.userId);
+        
+        // Update user offline status in Firebase
+        try {
+          const { FriendService } = await import('./friend-service');
+          await FriendService.updateOnlineStatus(socket.userId, false);
+        } catch (error) {
+          console.error('Error updating offline status:', error);
+        }
         
         // Notify others that user went offline
         socket.broadcast.emit('user_status', {
