@@ -26,7 +26,8 @@ export default function AuthCallback() {
           if (profileCompleted) {
             router.push('/')
           } else {
-            router.push('/setup-profile')
+            // Profile completion now handled via a popup on home
+            router.push('/')
           }
         } else {
           // No session, redirect to sign in

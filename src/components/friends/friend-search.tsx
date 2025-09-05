@@ -27,16 +27,23 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
   const handleSearch = async () => {
     if (!searchQuery.trim() || !user) return
 
+    const email = searchQuery.trim()
+    const isEmail = /[^@\s]+@[^@\s]+\.[^@\s]+/.test(email)
+    if (!isEmail) {
+      toast.error("Please enter a valid email")
+      return
+    }
+
     setIsLoading(true)
     try {
-      const results = await FriendService.searchUsers(searchQuery, user.id)
+      const results = await FriendService.findUserByEmail(email, user.id)
       setSearchResults(results)
       
       if (results.length === 0) {
-        toast.info("No users found matching your search")
+        toast.info("No user found with that email")
       }
     } catch (error) {
-      toast.error("Failed to search for users")
+      toast.error("Failed to search for user")
       console.error("Search error:", error)
     } finally {
       setIsLoading(false)
@@ -92,7 +99,7 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
             <div className="relative flex-1">
               <Icons.search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or username..."
+                placeholder="Enter friend's email"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -121,8 +128,8 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                   </h3>
                   <p className="text-muted-foreground text-sm max-w-sm">
                     {searchQuery 
-                      ? "Try searching with a different name or username" 
-                      : "Search for users by their name or username to send friend requests"
+                      ? "We couldn't find anyone with that email" 
+                      : "Search for users by their email to send a friend request"
                     }
                   </p>
                 </div>

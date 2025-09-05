@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Icons } from "@/components/ui/icons"
 import { ChatLayout } from "@/components/chat/chat-layout"
 import { getUserProfile, hasCompletedProfileSync } from "@/lib/profile-storage"
+import { ProfileCompletionDialog } from "@/components/profile/profile-completion-dialog"
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -18,31 +19,10 @@ export default function Home() {
     setIsClient(true)
   }, [])
 
-  // Check if user needs to complete registration (Supabase-compatible)
+  // Remove redirect-based profile setup. A lightweight dialog will handle completion.
   useEffect(() => {
-    const checkProfileCompletion = async () => {
-      if (user && !loading && isClient) {
-        try {
-          // Check if user has completed their profile
-          const profileCompleted = hasCompletedProfileSync(user.id)
-          
-          if (!profileCompleted) {
-            console.log('Profile not completed, redirecting to setup-profile')
-            router.push('/setup-profile')
-            return
-          }
-          
-          console.log('Profile completed, user can access main app')
-        } catch (error) {
-          console.error('Error checking profile completion:', error)
-          // If there's an error, redirect to setup profile to be safe
-          router.push('/setup-profile')
-        }
-      }
-    }
-
-    checkProfileCompletion()
-  }, [user?.id, loading, isClient, router])
+    // No redirect; dialog mounts when needed.
+  }, [user?.id, loading, isClient])
 
   const handleSignIn = () => {
     router.push('/auth/signin')
@@ -174,5 +154,11 @@ export default function Home() {
     )
   }
 
-  return <ChatLayout />
+  return (
+    <>
+      <ChatLayout />
+      {/* Show small completion popup for new users */}
+      <ProfileCompletionDialog />
+    </>
+  )
 }

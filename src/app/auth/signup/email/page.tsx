@@ -44,7 +44,7 @@ export default function EmailSignUpPage() {
         // userData will be filled in profile setup
       )
       toast.success("Account created successfully!")
-      // User will be redirected to setup-profile page by the auth flow
+      // Profile completion will be shown as a popup on home
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast.error("Email is already registered. Please sign in instead.")

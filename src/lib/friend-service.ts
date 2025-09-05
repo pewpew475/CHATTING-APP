@@ -57,6 +57,88 @@ export class FriendService {
     }
   }
 
+  // Find a single user by exact email
+  static async findUserByEmail(email: string, currentUserId: string): Promise<SearchResult[]> {
+    try {
+      // Find profile by email
+      const { data: profiles, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, real_name, email, profile_image_url')
+        .ilike('email', email)
+        .limit(1)
+
+      if (profileError) {
+        console.error('Error finding user by email:', profileError)
+        return []
+      }
+
+      if (!profiles || profiles.length === 0) {
+        return []
+      }
+
+      const profile = profiles[0] as any
+      const targetUserId = profile.user_id as string
+      if (targetUserId === currentUserId) {
+        return []
+      }
+
+      // Determine friendship status
+      const { data: friendsA } = await supabase
+        .from('friends')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .eq('friend_id', targetUserId)
+        .limit(1)
+
+      const { data: friendsB } = await supabase
+        .from('friends')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('friend_id', currentUserId)
+        .limit(1)
+
+      const isFriend = (friendsA && friendsA.length > 0) || (friendsB && friendsB.length > 0)
+
+      // Determine pending request status
+      const { data: outgoingReq } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .eq('from_user_id', currentUserId)
+        .eq('to_user_id', targetUserId)
+        .in('status', ['pending'])
+        .limit(1)
+
+      const { data: incomingReq } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .eq('from_user_id', targetUserId)
+        .eq('to_user_id', currentUserId)
+        .in('status', ['pending'])
+        .limit(1)
+
+      let friendRequestStatus = 'none'
+      if (outgoingReq && outgoingReq.length > 0) friendRequestStatus = 'pending'
+      if (incomingReq && incomingReq.length > 0) friendRequestStatus = 'incoming'
+
+      const result: SearchResult = {
+        id: targetUserId,
+        username: profile.username,
+        realName: profile.real_name,
+        email: profile.email,
+        profileImageUrl: profile.profile_image_url || undefined,
+        isOnline: false,
+        lastSeen: '',
+        isFriend,
+        friendRequestStatus,
+      }
+
+      return [result]
+    } catch (error) {
+      console.error('Error finding user by email:', error)
+      return []
+    }
+  }
+
   // Send a friend request
   static async sendFriendRequest(fromUserId: string, toUserId: string, message?: string): Promise<{ success: boolean; error?: string }> {
     try {

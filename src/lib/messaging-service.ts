@@ -59,75 +59,91 @@ export class MessagingService {
   // Get user's chats with last message
   static async getUserChats(userId: string): Promise<Chat[]> {
     try {
-      const { data, error } = await supabase
+      // 1) Load chats without joins to avoid FK name coupling
+      const { data: chats, error: chatsError } = await supabase
         .from('chats')
-        .select(`
-          *,
-          user1:user_profiles!chats_user1_id_fkey(
-            user_id,
-            username,
-            real_name,
-            profile_image_url
-          ),
-          user2:user_profiles!chats_user2_id_fkey(
-            user_id,
-            username,
-            real_name,
-            profile_image_url
-          ),
-          last_message:messages!chats_last_message_id_fkey(
-            id,
-            content,
-            type,
-            file_name,
-            created_at
-          )
-        `)
+        .select('*')
         .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
         .order('last_message_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error getting user chats:', error)
+      if (chatsError) {
+        console.error('Error getting user chats (base):', chatsError)
         return []
       }
 
-      return (data || []).map(chat => ({
-        id: chat.id,
-        user1Id: chat.user1_id,
-        user2Id: chat.user2_id,
-        lastMessageId: chat.last_message_id,
-        lastMessageAt: chat.last_message_at,
-        createdAt: chat.created_at,
-        updatedAt: chat.updated_at,
-        otherUser: chat.user1_id === userId ? {
-          id: chat.user2.user_id,
-          username: chat.user2.username,
-          realName: chat.user2.real_name,
-          profileImageUrl: chat.user2.profile_image_url,
-          isOnline: false // Will be updated by online status subscription
-        } : {
-          id: chat.user1.user_id,
-          username: chat.user1.username,
-          realName: chat.user1.real_name,
-          profileImageUrl: chat.user1.profile_image_url,
-          isOnline: false // Will be updated by online status subscription
-        },
-        lastMessage: chat.last_message ? {
-          id: chat.last_message.id,
-          chatId: chat.id,
-          senderId: '',
-          receiverId: '',
-          content: chat.last_message.content,
-          type: chat.last_message.type,
-          fileName: chat.last_message.file_name,
-          isRead: false,
-          createdAt: chat.last_message.created_at,
-          updatedAt: chat.last_message.created_at
-        } : undefined
-      }))
+      const chatRows = chats || []
+      if (chatRows.length === 0) return []
+
+      // 2) Gather other user IDs and last message IDs
+      const otherUserIds = Array.from(new Set(chatRows.map(c => c.user1_id === userId ? c.user2_id : c.user1_id)))
+      const lastMessageIds = Array.from(new Set(chatRows.map(c => c.last_message_id).filter(Boolean)))
+
+      // 3) Load profiles for other users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('user_id, username, real_name, profile_image_url')
+        .in('user_id', otherUserIds)
+
+      if (profilesError) {
+        console.error('Error loading chat user profiles:', profilesError)
+      }
+
+      const userIdToProfile = new Map<string, any>()
+      ;(profiles || []).forEach((p: any) => userIdToProfile.set(p.user_id, p))
+
+      // 4) Load last messages
+      let messagesById = new Map<string, any>()
+      if (lastMessageIds.length > 0) {
+        const { data: messages, error: messagesError } = await supabase
+          .from('messages')
+          .select('id, content, type, file_name, created_at')
+          .in('id', lastMessageIds)
+
+        if (messagesError) {
+          console.error('Error loading last messages:', messagesError)
+        }
+        (messages || []).forEach((m: any) => messagesById.set(m.id, m))
+      }
+
+      // 5) Compose result
+      return chatRows.map((chat: any) => {
+        const otherId = chat.user1_id === userId ? chat.user2_id : chat.user1_id
+        const profile = userIdToProfile.get(otherId)
+        const last = chat.last_message_id ? messagesById.get(chat.last_message_id) : undefined
+
+        const composed: Chat = {
+          id: chat.id,
+          user1Id: chat.user1_id,
+          user2Id: chat.user2_id,
+          lastMessageId: chat.last_message_id || undefined,
+          lastMessageAt: chat.last_message_at || undefined,
+          createdAt: chat.created_at,
+          updatedAt: chat.updated_at,
+          otherUser: profile ? {
+            id: otherId,
+            username: profile.username,
+            realName: profile.real_name,
+            profileImageUrl: profile.profile_image_url,
+            isOnline: false
+          } : undefined,
+          lastMessage: last ? {
+            id: last.id,
+            chatId: chat.id,
+            senderId: '',
+            receiverId: '',
+            content: last.content,
+            type: last.type,
+            fileName: last.file_name,
+            isRead: false,
+            createdAt: last.created_at,
+            updatedAt: last.created_at
+          } : undefined
+        }
+        return composed
+      })
     } catch (error) {
-      console.error('Error getting user chats:', error)
+      console.error('Error getting user chats (unexpected):', error)
       return []
     }
   }

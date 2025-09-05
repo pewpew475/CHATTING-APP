@@ -21,7 +21,7 @@ export default function SignUpPage() {
       toast.info("You'll be redirected back after signing in")
       
       await signInWithGoogle()
-      // After successful Google auth, user will be redirected to setup-profile page
+      // After successful Google auth, user will be redirected back; profile popup will show on home
     } catch (error: any) {
       console.error("Google auth error:", error)
       toast.error("Authentication failed. Please try again.")
