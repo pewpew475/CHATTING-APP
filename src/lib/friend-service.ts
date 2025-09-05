@@ -379,8 +379,7 @@ export class FriendService {
       const q = query(
         collection(db, 'friendRequests'),
         where('toUserId', '==', userId),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'pending')
       )
 
       const snapshot = await getDocs(q)
@@ -406,6 +405,13 @@ export class FriendService {
           })
         }
       }
+
+      // Sort by creation date (newest first) on the client side
+      requests.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime()
+        const dateB = new Date(b.createdAt).getTime()
+        return dateB - dateA
+      })
 
       console.log('Incoming friend requests:', requests)
       return requests
