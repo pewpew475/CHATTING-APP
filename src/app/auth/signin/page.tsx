@@ -23,11 +23,17 @@ export default function SignInPage() {
   const handleGoogleAuth = async () => {
     try {
       setIsLoading(true)
-      toast.success("Redirecting to Google for authentication...")
-      toast.info("You'll be redirected back after signing in")
+      toast.success("Starting Google authentication...")
       
-      await signInWithGoogle()
-      // Redirect will be handled by the auth provider
+      const result = await signInWithGoogle()
+      
+      if (result.success) {
+        toast.info("Authentication successful! Redirecting...")
+        // Redirect will be handled by the auth provider or redirect flow
+      } else {
+        toast.error(result.error || "Authentication failed. Please try again.")
+        setIsLoading(false)
+      }
     } catch (error: any) {
       console.error("Google auth error:", error)
       toast.error("Authentication failed. Please try again.")

@@ -10,7 +10,9 @@ import {
   updateProfile,
   deleteUser,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { saveUserProfile, getUserProfile, deleteUserProfile } from '@/lib/profile-storage'
@@ -33,6 +35,20 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Handle redirect result first
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          console.log('Redirect authentication successful:', result.user?.email)
+        }
+      } catch (error) {
+        console.error('Error handling redirect result:', error)
+      }
+    }
+
+    handleRedirectResult()
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Firebase auth state changed:', user?.email)
       
@@ -102,8 +118,31 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
-      return { success: true }
+      
+      // Try popup first, fallback to redirect if popup fails
+      try {
+        await signInWithPopup(auth, provider)
+        return { success: true }
+      } catch (popupError: any) {
+        console.warn('Popup authentication failed, trying redirect:', popupError.message)
+        
+        // If popup fails due to COOP or other popup-blocking issues, use redirect
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' ||
+            popupError.message?.includes('Cross-Origin-Opener-Policy') ||
+            popupError.message?.includes('window.closed') ||
+            popupError.message?.includes('COOP')) {
+          
+          console.log('Using redirect authentication due to popup issues')
+          await signInWithRedirect(auth, provider)
+          // Note: The redirect will handle the authentication flow
+          // The user will be redirected back to the app after authentication
+          return { success: true }
+        }
+        
+        // Re-throw other popup errors
+        throw popupError
+      }
     } catch (error: any) {
       console.error('Google sign in error:', error)
       return { 
