@@ -209,6 +209,20 @@ export class MessagingService {
     }
   }
 
+  // Get a specific chat by ID
+  static async getChat(chatId: string): Promise<Chat | null> {
+    try {
+      const chatDoc = await getDoc(doc(db, 'chats', chatId))
+      if (chatDoc.exists()) {
+        return { id: chatDoc.id, ...chatDoc.data() } as Chat
+      }
+      return null
+    } catch (error) {
+      console.error('Error getting chat:', error)
+      return null
+    }
+  }
+
   // Get messages for a chat
   static async getChatMessages(chatId: string, messageLimit: number = 50, offset: number = 0): Promise<Message[]> {
     try {

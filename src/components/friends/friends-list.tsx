@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/providers/firebase-auth-provider"
+import { useSocket } from "@/hooks/use-socket"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -21,6 +22,7 @@ interface FriendsListProps {
 
 export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListProps) {
   const { user } = useAuth()
+  const { isUserOnline } = useSocket()
   const [friends, setFriends] = useState<Friend[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -157,14 +159,14 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
                                 .toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          {friend.isOnline && (
+                          {isUserOnline(friend.id) && (
                             <div className="absolute bottom-0 right-0 h-2 w-2 bg-green-500 rounded-full border border-background" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium truncate text-sm">{friend.realName}</h3>
                           <p className="text-xs text-muted-foreground truncate">
-                            {friend.isOnline ? (
+                            {isUserOnline(friend.id) ? (
                               <span className="text-green-600">Online</span>
                             ) : friend.lastSeen ? (
                               <span>Last seen {formatLastSeen(friend.lastSeen)}</span>

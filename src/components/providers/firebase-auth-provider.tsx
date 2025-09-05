@@ -96,7 +96,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
         // Profile exists and user is authenticated
       }
 
-      // Set user as online when they sign in
+      // Set user as online when they sign in - handled by Socket.IO now
+      // Commented out to reduce Firebase quota usage
+      /*
       try {
         const { FriendService } = await import('@/lib/friend-service')
         await FriendService.updateOnlineStatus(user.uid, true)
@@ -104,6 +106,7 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
       } catch (error) {
         console.error('Error updating online status:', error)
       }
+      */
     } catch (error) {
       console.error('Error handling user sign in:', error)
       // If there's an error, don't sign out - just log the error
@@ -203,6 +206,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
       
       // Set user as offline before signing out
       if (user?.uid) {
+        // Update user offline status - handled by Socket.IO now
+        // Commented out to reduce Firebase quota usage
+        /*
         try {
           const { FriendService } = await import('@/lib/friend-service')
           await FriendService.updateOnlineStatus(user.uid, false)
@@ -210,6 +216,7 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
         } catch (error) {
           console.error('Error updating offline status:', error)
         }
+        */
       }
       
       await signOut(auth)

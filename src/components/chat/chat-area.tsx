@@ -37,6 +37,7 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
   
   const { 
     isConnected, 
+    messages: socketMessages,
     sendMessage, 
     sendTyping, 
     isUserOnline,
@@ -69,6 +70,24 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
       subscription()
     }
   }, [chatId])
+
+  // Sync Socket.IO messages with local messages for real-time updates
+  useEffect(() => {
+    if (socketMessages && socketMessages.length > 0) {
+      // Filter messages for this specific chat
+      const chatMessages = socketMessages.filter(msg => msg.chatId === chatId)
+      if (chatMessages.length > 0) {
+        setMessages(prevMessages => {
+          // Merge with existing messages, avoiding duplicates
+          const existingIds = new Set(prevMessages.map(m => m.id))
+          const newMessages = chatMessages.filter(m => !existingIds.has(m.id))
+          return [...prevMessages, ...newMessages].sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          )
+        })
+      }
+    }
+  }, [socketMessages, chatId])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -112,19 +131,32 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     if (!message.trim() || !user) return
 
     try {
-      const result = await MessagingService.sendMessage(
-        chatId,
-        user.id,
-        otherUser.id,
-        message.trim(),
-        "TEXT"
-      )
-
-      if (result.success && result.message) {
-        setMessages(prev => [...prev, result.message!])
+      // Use Socket.IO for real-time messaging
+      if (isConnected) {
+        sendMessage({
+          chatId,
+          content: message.trim(),
+          type: "TEXT"
+        })
         setMessage("")
+        console.log('Message sent via Socket.IO')
       } else {
-        toast.error(result.error || "Failed to send message")
+        // Fallback to Firebase if Socket.IO is not connected
+        const result = await MessagingService.sendMessage(
+          chatId,
+          user.id,
+          otherUser.id,
+          message.trim(),
+          "TEXT"
+        )
+
+        if (result.success && result.message) {
+          setMessages(prev => [...prev, result.message!])
+          setMessage("")
+        } else {
+          toast.error(result.error || "Failed to send message")
+        }
+        console.log('Message sent via Firebase fallback')
       }
     } catch (error) {
       console.error("Error sending message:", error)
@@ -177,15 +209,14 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
                     .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              {/* Online indicator - disabled in Firebase-only mode */}
-              {false && (
+              {isUserOnline(otherUser.id) && (
                 <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
               )}
             </div>
             <div>
               <h3 className="font-semibold">{otherUser.realName}</h3>
               <p className="text-sm text-muted-foreground">
-                {isOtherUserTyping ? "Typing..." : "Offline"}
+                {isOtherUserTyping ? "Typing..." : isUserOnline(otherUser.id) ? "Online" : "Offline"}
               </p>
             </div>
           </div>
