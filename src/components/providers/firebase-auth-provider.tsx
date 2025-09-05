@@ -95,6 +95,15 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
         console.log('Profile exists, user is authenticated')
         // Profile exists and user is authenticated
       }
+
+      // Set user as online when they sign in
+      try {
+        const { FriendService } = await import('@/lib/friend-service')
+        await FriendService.updateOnlineStatus(user.uid, true)
+        console.log('User online status updated to true')
+      } catch (error) {
+        console.error('Error updating online status:', error)
+      }
     } catch (error) {
       console.error('Error handling user sign in:', error)
       // If there's an error, don't sign out - just log the error
@@ -191,6 +200,18 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
   const signOutUser = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Signing out user:', user?.uid)
+      
+      // Set user as offline before signing out
+      if (user?.uid) {
+        try {
+          const { FriendService } = await import('@/lib/friend-service')
+          await FriendService.updateOnlineStatus(user.uid, false)
+          console.log('User online status updated to false')
+        } catch (error) {
+          console.error('Error updating offline status:', error)
+        }
+      }
+      
       await signOut(auth)
       console.log('User signed out successfully')
       return { success: true }

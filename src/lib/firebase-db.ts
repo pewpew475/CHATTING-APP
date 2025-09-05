@@ -349,7 +349,6 @@ export const subscribeToChatMessages = (chatId: string, callback: (message: Mess
   const q = query(
     collection(db, 'messages'),
     where('chatId', '==', chatId),
-    orderBy('createdAt', 'desc'),
     limit(50)
   )
 

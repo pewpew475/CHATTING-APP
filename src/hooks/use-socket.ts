@@ -60,6 +60,8 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      timeout: 20000,
+      forceNew: true,
     })
 
     socketRef.current = socket
@@ -79,6 +81,8 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error)
       setIsConnected(false)
+      // If Socket.IO fails, we'll fall back to Firebase-only mode
+      console.log('Falling back to Firebase-only mode for real-time features')
     })
 
     // Handle authentication success

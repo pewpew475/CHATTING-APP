@@ -215,7 +215,6 @@ export class MessagingService {
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', chatId),
-        orderBy('createdAt', 'desc'),
         limit(messageLimit)
       )
 
@@ -241,7 +240,14 @@ export class MessagingService {
         })
       })
 
-      return messages.reverse() // Reverse to get chronological order
+      // Sort by creation date (newest first) on the client side
+      messages.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime()
+        const dateB = new Date(b.createdAt).getTime()
+        return dateB - dateA
+      })
+
+      return messages
     } catch (error) {
       console.error('Error getting chat messages:', error)
       return []
@@ -350,7 +356,6 @@ export class MessagingService {
     const q = query(
       collection(db, 'messages'),
       where('chatId', '==', chatId),
-      orderBy('createdAt', 'desc'),
       limit(50)
     )
 
