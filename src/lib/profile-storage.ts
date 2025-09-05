@@ -197,26 +197,80 @@ export const updateUserProfile = async (userId: string, updates: Partial<Omit<Us
   }
 }
 
-// Delete profile
+// Delete profile and all related data
 export const deleteUserProfile = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Delete from Supabase database
+    console.log('Deleting all data for user:', userId)
+    
     if (supabase) {
       try {
-        const { error } = await supabase
+        // Delete user profile
+        const { error: profileError } = await supabase
           .from('user_profiles')
           .delete()
           .eq('user_id', userId)
 
-        if (error) {
-          console.error('Database error deleting profile:', error)
-          if (error.code === 'PGRST205') {
-            console.warn('user_profiles table not found. Please run the database setup.')
-          }
+        if (profileError) {
+          console.error('Error deleting profile:', profileError)
         }
+
+        // Delete friend requests (both sent and received)
+        const { error: requestsError } = await supabase
+          .from('friend_requests')
+          .delete()
+          .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
+
+        if (requestsError) {
+          console.error('Error deleting friend requests:', requestsError)
+        }
+
+        // Delete friendships
+        const { error: friendsError } = await supabase
+          .from('friends')
+          .delete()
+          .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+
+        if (friendsError) {
+          console.error('Error deleting friendships:', friendsError)
+        }
+
+        // Delete messages
+        const { error: messagesError } = await supabase
+          .from('messages')
+          .delete()
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+
+        if (messagesError) {
+          console.error('Error deleting messages:', messagesError)
+        }
+
+        // Delete chats
+        const { error: chatsError } = await supabase
+          .from('chats')
+          .delete()
+          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+
+        if (chatsError) {
+          console.error('Error deleting chats:', chatsError)
+        }
+
+        // Delete online status
+        const { error: statusError } = await supabase
+          .from('user_online_status')
+          .delete()
+          .eq('user_id', userId)
+
+        if (statusError) {
+          console.error('Error deleting online status:', statusError)
+        }
+
+        console.log('All user data deleted successfully')
       } catch (dbError) {
         console.error('Database connection error:', dbError)
-        // Continue even if database delete fails
+        return { 
+          success: false, 
+          error: 'Database connection failed' 
+        }
       }
     }
     

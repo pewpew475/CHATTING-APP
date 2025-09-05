@@ -30,7 +30,7 @@ interface PrivacySettings {
 }
 
 export function SettingsDialog({ children }: SettingsDialogProps) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, deleteAccount } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -75,12 +75,17 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
 
     setIsLoading(true)
     try {
-      // Mock account deletion - will be replaced with API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      await signOut()
-      toast.success("Account deleted successfully")
+      const result = await deleteAccount()
+      
+      if (result.success) {
+        toast.success("Account deleted successfully")
+        setIsOpen(false)
+      } else {
+        toast.error(result.error || "Failed to delete account")
+      }
     } catch (error) {
       toast.error("Failed to delete account")
+      console.error("Delete account error:", error)
     } finally {
       setIsLoading(false)
     }
@@ -257,7 +262,15 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => signOut()}
+                onClick={async () => {
+                  const result = await signOut()
+                  if (result.success) {
+                    toast.success("Signed out successfully")
+                    setIsOpen(false)
+                  } else {
+                    toast.error(result.error || "Failed to sign out")
+                  }
+                }}
                 disabled={isLoading}
               >
                 <Icons.logout className="mr-2 h-4 w-4" />

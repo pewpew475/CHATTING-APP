@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, Session, AuthError } from '@supabase/supabase-js'
-import { saveUserProfile, getUserProfile } from '@/lib/profile-storage'
+import { saveUserProfile, getUserProfile, deleteUserProfile } from '@/lib/profile-storage'
 
 interface AuthContextType {
   user: User | null
@@ -13,6 +13,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signUpWithEmail: (email: string, password: string, userData?: { realName?: string; username?: string }) => Promise<{ success: boolean; error?: string }>
   signOut: () => Promise<{ success: boolean; error?: string }>
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>
   updateUserProfile: (updates: { displayName?: string; photoURL?: string }) => Promise<{ success: boolean; error?: string }>
 }
 
@@ -188,17 +189,58 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   const signOut = async (): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Signing out user:', user?.id)
+      
       const { error } = await supabase.auth.signOut()
 
       if (error) {
+        console.error('Sign out error:', error)
         return { success: false, error: error.message }
       }
 
+      // Clear local state
+      setUser(null)
+      setSession(null)
+      console.log('User signed out successfully')
       return { success: true }
     } catch (error) {
+      console.error('Sign out error:', error)
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to sign out' 
+      }
+    }
+  }
+
+  const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!user?.id) {
+        return { success: false, error: 'No user logged in' }
+      }
+
+      console.log('Deleting account for user:', user.id)
+
+      // First delete all user data from database
+      const profileResult = await deleteUserProfile(user.id)
+      if (!profileResult.success) {
+        console.warn('Failed to delete profile data:', profileResult.error)
+        return { success: false, error: profileResult.error || 'Failed to delete user data' }
+      }
+
+      // Sign out the user (this will clear the session)
+      const signOutResult = await signOut()
+      if (!signOutResult.success) {
+        console.error('Failed to sign out during account deletion:', signOutResult.error)
+        return { success: false, error: signOutResult.error || 'Failed to sign out' }
+      }
+
+      console.log('Account data deleted successfully')
+      return { success: true }
+    } catch (error) {
+      console.error('Delete account error:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to delete account' 
       }
     }
   }
@@ -240,6 +282,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     signInWithEmail,
     signUpWithEmail,
     signOut,
+    deleteAccount,
     updateUserProfile,
   }
 
