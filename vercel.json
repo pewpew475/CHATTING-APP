@@ -13,6 +13,9 @@
     },
     "src/app/api/upload/route.ts": {
       "maxDuration": 60
+    },
+    "socket-server.js": {
+      "maxDuration": 30
     }
   },
   

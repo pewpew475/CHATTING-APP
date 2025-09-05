@@ -57,14 +57,19 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
 
     console.log('Initializing socket connection for user:', user.id)
 
-    const socket = io({
-      path: '/api/socketio',
+    // Connect to standalone Socket.IO server
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://your-socket-server.vercel.app' // Replace with your deployed Socket.IO server URL
+      : 'http://localhost:4000'
+    
+    const socket = io(socketUrl, {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       timeout: 20000,
       forceNew: true,
+      transports: ['websocket', 'polling']
     })
 
     socketRef.current = socket
@@ -116,6 +121,12 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     socket.on('message_sent', (message: ChatMessage) => {
       console.log('Message sent confirmation:', message)
       setMessages(prev => [...prev, message])
+    })
+
+    // Handle chat messages
+    socket.on('chat_messages', (data: { chatId: string; messages: ChatMessage[] }) => {
+      console.log('Chat messages received:', data)
+      setMessages(data.messages)
     })
 
     // Handle typing indicators
@@ -209,6 +220,7 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     fileUrl?: string
     fileName?: string
     fileSize?: number
+    receiverId?: string
   }) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit('send_message', data)
@@ -258,6 +270,26 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     }
   }
 
+  const joinChat = (chatId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('join_chat', { chatId })
+    }
+  }
+
+  const leaveChat = (chatId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('leave_chat', { chatId })
+    }
+  }
+
+  const getChatMessages = (chatId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('get_chat_messages', { chatId }, (data: { chatId: string; messages: ChatMessage[] }) => {
+        setMessages(data.messages)
+      })
+    }
+  }
+
   return {
     isConnected,
     messages,
@@ -269,6 +301,9 @@ export function useSocket({ autoConnect = true }: UseSocketProps = {}) {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
+    joinChat,
+    leaveChat,
+    getChatMessages,
     socket: socketRef.current,
   }
 }

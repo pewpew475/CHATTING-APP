@@ -41,35 +41,30 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
     sendMessage, 
     sendTyping, 
     isUserOnline,
-    isUserTyping 
+    isUserTyping,
+    joinChat,
+    leaveChat,
+    getChatMessages
   } = useSocket()
 
-  // Load initial messages
+  // Load initial messages and join chat
   useEffect(() => {
-    const loadMessages = async () => {
-      try {
-        const messages = await MessagingService.getChatMessages(chatId)
-        setMessages(messages)
-      } catch (error) {
-        console.error("Failed to load messages:", error)
+    if (chatId && isConnected) {
+      // Join the chat room
+      joinChat(chatId)
+      
+      // Get messages from Socket.IO server
+      getChatMessages(chatId)
+    }
+    
+    return () => {
+      if (chatId) {
+        leaveChat(chatId)
       }
     }
+  }, [chatId, isConnected, joinChat, leaveChat, getChatMessages])
 
-    loadMessages()
-  }, [chatId, user?.id, otherUser.id])
-
-  // Subscribe to real-time messages
-  useEffect(() => {
-    if (!chatId) return
-
-    const subscription = MessagingService.subscribeToChatMessages(chatId, (newMessage) => {
-      setMessages(prev => [...prev, newMessage])
-    })
-
-    return () => {
-      subscription()
-    }
-  }, [chatId])
+  // Socket.IO handles real-time messages automatically
 
   // Sync Socket.IO messages with local messages for real-time updates
   useEffect(() => {
@@ -136,7 +131,8 @@ export function ChatArea({ chatId, otherUser }: ChatAreaProps) {
         sendMessage({
           chatId,
           content: message.trim(),
-          type: "TEXT"
+          type: "TEXT",
+          receiverId: otherUser.id
         })
         setMessage("")
         console.log('Message sent via Socket.IO')
