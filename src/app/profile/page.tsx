@@ -15,7 +15,7 @@ import { Icons } from "@/components/ui/icons"
 import { toast } from "sonner"
 import { ArrowLeft, Edit, Mail, Phone, User, Calendar, MapPin, Save, X } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { uploadProfileImage, deleteImage } from "@/lib/supabase"
+import { uploadProfileImage, deleteImage, testStorageAccess } from "@/lib/supabase"
 import { getUserProfile, updateUserProfile, getProfileCompletionPercentageAsync } from "@/lib/profile-storage"
 import { EmailNotificationsDialog } from "@/components/profile/email-notifications-dialog"
 import { PrivacySettingsDialog } from "@/components/profile/privacy-settings-dialog"
@@ -63,6 +63,11 @@ export default function ProfilePage() {
     const loadProfile = async () => {
       if (user?.id) {
         console.log('Loading profile for user:', user.id)
+        
+        // Test storage access first
+        const storageTest = await testStorageAccess()
+        console.log('Storage access test result:', storageTest)
+        
         // Load saved profile data
         const savedProfile = await getUserProfile(user.id)
         console.log('Saved profile from database:', savedProfile)
