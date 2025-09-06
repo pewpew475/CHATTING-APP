@@ -111,21 +111,22 @@ export function ChatSidebar({
 
   if (!isOpen) {
     return (
-      <div className="w-16 border-r bg-gradient-to-b from-purple-600 to-blue-600 flex flex-col items-center py-4">
+      <div className="w-16 border-r bg-card flex flex-col items-center py-4 space-y-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="mb-4 text-white hover:bg-white/20"
+          className="text-foreground hover:bg-accent rounded-lg"
         >
           <Icons.messageSquare className="h-5 w-5" />
         </Button>
+        <div className="w-8 h-px bg-border" />
         <Avatar 
-          className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity"
+          className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-transparent hover:ring-primary/20"
           onClick={() => router.push("/profile")}
         >
           <AvatarImage src={profileImage} />
-          <AvatarFallback className="bg-white text-purple-600">
+          <AvatarFallback className="bg-primary/10 text-primary font-medium">
             {displayName[0]?.toUpperCase() || "U"}
           </AvatarFallback>
         </Avatar>
@@ -136,37 +137,42 @@ export function ChatSidebar({
   return (
     <div className="w-80 border-r bg-card flex flex-col h-full max-h-screen overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b bg-gradient-to-r from-purple-600 to-blue-600">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 p-6 border-b bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-purple-600 text-sm font-bold">F</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span className="text-white text-lg font-bold">F</span>
             </div>
-            <h2 className="text-lg font-semibold text-white truncate">Fellowz</h2>
+            <div>
+              <h2 className="text-xl font-bold text-white truncate">Fellowz</h2>
+              <p className="text-xs text-white/70">Connect & Chat</p>
+            </div>
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={onToggle} 
-            className="text-white hover:bg-white/20 flex-shrink-0"
+            className="text-white hover:bg-white/10 flex-shrink-0 rounded-lg"
           >
-            <Icons.messageSquare className="h-5 w-5" />
+            <Icons.x className="h-5 w-5" />
           </Button>
         </div>
         
-        <div className="space-y-4">
+        <div className="space-y-5">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-white/20">
+            <TabsList className="grid w-full grid-cols-2 bg-white/5 backdrop-blur-sm h-14 p-2 rounded-2xl border border-white/10">
               <TabsTrigger 
                 value="chats" 
-                className="text-white data-[state=active]:bg-white/30 text-sm truncate"
+                className="text-white/80 data-[state=active]:text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-white/25 data-[state=active]:to-white/15 data-[state=active]:shadow-lg data-[state=active]:shadow-white/10 text-sm font-bold h-10 rounded-xl transition-all duration-300 flex items-center justify-center gap-2.5 data-[state=active]:scale-[1.02] hover:text-white hover:bg-white/10"
               >
+                <Icons.messageSquare className="h-4 w-4" />
                 Chats
               </TabsTrigger>
               <TabsTrigger 
                 value="friends" 
-                className="text-white data-[state=active]:bg-white/30 text-sm truncate"
+                className="text-white/80 data-[state=active]:text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-white/25 data-[state=active]:to-white/15 data-[state=active]:shadow-lg data-[state=active]:shadow-white/10 text-sm font-bold h-10 rounded-xl transition-all duration-300 flex items-center justify-center gap-2.5 data-[state=active]:scale-[1.02] hover:text-white hover:bg-white/10"
               >
+                <Icons.users className="h-4 w-4" />
                 Friends
               </TabsTrigger>
             </TabsList>
@@ -174,12 +180,12 @@ export function ChatSidebar({
           
           {/* Search Input */}
           <div className="relative">
-            <Icons.search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/70 z-10" />
+            <Icons.search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60 z-10" />
             <Input
               placeholder={activeTab === "chats" ? "Search conversations..." : "Search friends..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white/20 border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
+              className="pl-12 h-12 bg-white/5 border border-white/10 text-white placeholder:text-white/60 focus:bg-white/10 focus:border-white/30 backdrop-blur-sm rounded-xl transition-all duration-300 font-medium"
             />
           </div>
         </div>
@@ -189,28 +195,38 @@ export function ChatSidebar({
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === "chats" ? (
           <ScrollArea className="h-full">
-            <div className="p-2 space-y-1">
+            <div className="p-3 space-y-2">
               {filteredChats.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Icons.messageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-sm">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <Icons.messageSquare className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-medium text-lg mb-2">
                     {searchQuery ? "No conversations found" : "No conversations yet"}
+                  </h3>
+                  <p className="text-muted-foreground text-sm max-w-sm">
+                    {searchQuery 
+                      ? "Try adjusting your search terms" 
+                      : "Start a conversation with your friends"
+                    }
                   </p>
                 </div>
               ) : (
                 filteredChats.map((chat) => (
                   <div
                     key={chat.id}
-                    className={`p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors ${
-                      selectedChat === chat.id ? "bg-accent" : ""
+                    className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-accent/50 hover:shadow-sm ${
+                      selectedChat === chat.id 
+                        ? "bg-primary/10 border border-primary/20 shadow-sm" 
+                        : "hover:border-border/50"
                     }`}
                     onClick={() => onChatSelect(chat.id)}
                   >
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className="relative flex-shrink-0">
-                        <Avatar className="h-10 w-10">
+                        <Avatar className="h-12 w-12 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
                           <AvatarImage src={chat.otherUser?.profileImageUrl} />
-                          <AvatarFallback>
+                          <AvatarFallback className="bg-primary/10 text-primary font-medium">
                             {chat.otherUser?.realName
                               ?.split(" ")
                               .map((n) => n[0])
@@ -219,13 +235,12 @@ export function ChatSidebar({
                           </AvatarFallback>
                         </Avatar>
                         {chat.otherUser?.isOnline && (
-                          <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
+                          <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                         )}
-                        {/* Unread badge intentionally removed until supported by Chat type */}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-medium truncate text-sm">
+                          <h3 className="font-semibold truncate text-base">
                             {chat.otherUser?.realName}
                           </h3>
                           {chat.lastMessageAt && (
@@ -255,19 +270,19 @@ export function ChatSidebar({
       </div>
 
       {/* User Profile */}
-      <div className="flex-shrink-0 p-4 border-t">
-        <div className="flex items-center space-x-3 min-w-0">
+      <div className="flex-shrink-0 p-4 border-t bg-muted/30">
+        <div className="flex items-center space-x-3 min-w-0 p-3 rounded-lg hover:bg-accent/50 transition-colors group">
           <Avatar 
-            className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+            className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 ring-2 ring-transparent group-hover:ring-primary/20"
             onClick={() => router.push("/profile")}
           >
             <AvatarImage src={profileImage} />
-            <AvatarFallback>
+            <AvatarFallback className="bg-primary/10 text-primary font-medium">
               {displayName[0]?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p className="text-sm font-semibold truncate">
               {displayName}
             </p>
             <p className="text-xs text-muted-foreground truncate">
@@ -275,7 +290,11 @@ export function ChatSidebar({
             </p>
           </div>
           <SettingsDialog>
-            <Button variant="ghost" size="icon" className="flex-shrink-0">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="flex-shrink-0 hover:bg-accent rounded-lg"
+            >
               <Icons.settings className="h-4 w-4" />
             </Button>
           </SettingsDialog>

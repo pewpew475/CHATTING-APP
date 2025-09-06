@@ -79,24 +79,26 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
   return (
     <div className="flex flex-col h-full max-h-full overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 p-3 border-b space-y-3">
+      <div className="flex-shrink-0 p-4 border-b bg-muted/20 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2 min-w-0">
-            <Icons.users className="h-4 w-4 flex-shrink-0" />
+          <h2 className="text-lg font-bold flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+              <Icons.users className="h-4 w-4 text-white" />
+            </div>
             <span className="truncate">Friends</span>
             {friends.length > 0 && (
-              <Badge variant="secondary" className="flex-shrink-0 text-xs">
+              <Badge variant="secondary" className="flex-shrink-0 text-xs bg-primary/10 text-primary border-primary/20">
                 {friends.length}
               </Badge>
             )}
           </h2>
-          <div className="flex gap-1 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0">
             <FriendSearch onFriendAdded={loadFriends} />
             <Button
               variant={showRequests ? "default" : "outline"}
               size="sm"
               onClick={() => setShowRequests(!showRequests)}
-              className="text-xs"
+              className="text-xs h-8"
             >
               <Icons.userCheck className="h-3 w-3 mr-1" />
               Requests
@@ -109,7 +111,7 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
             placeholder="Search friends..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-9"
+            className="pl-10 h-10 border-2 focus:border-primary/50"
           />
         </div>
       </div>
@@ -124,34 +126,47 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
       {/* Friends List */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full">
-          <div className="p-2">
+          <div className="p-3">
             {isLoading ? (
-              <div className="flex items-center justify-center p-8">
-                <Icons.spinner className="h-6 w-6 animate-spin" />
+              <div className="flex items-center justify-center p-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Icons.spinner className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading friends...</p>
+                </div>
               </div>
             ) : filteredFriends.length === 0 ? (
-              <div className="text-center py-8">
-                <Icons.user className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm px-4">
-                  {searchQuery ? "No friends found" : "No friends yet. Add some friends to get started!"}
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                  <Icons.users className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-medium text-lg mb-2">
+                  {searchQuery ? "No friends found" : "No friends yet"}
+                </h3>
+                <p className="text-muted-foreground text-sm px-4 max-w-sm mx-auto">
+                  {searchQuery 
+                    ? "Try adjusting your search terms" 
+                    : "Add some friends to get started chatting!"
+                  }
                 </p>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {filteredFriends.map((friend) => (
                   <div
                     key={friend.id}
-                    className={`p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors ${
-                      selectedFriendId === friend.id ? "bg-accent" : ""
+                    className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-accent/50 hover:shadow-sm ${
+                      selectedFriendId === friend.id 
+                        ? "bg-primary/10 border border-primary/20 shadow-sm" 
+                        : "hover:border-border/50"
                     }`}
                     onClick={() => onFriendSelect?.(friend)}
                   >
                     <div className="flex items-center justify-between min-w-0">
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <div className="relative flex-shrink-0">
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-12 w-12 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
                             <AvatarImage src={friend.profileImageUrl} />
-                            <AvatarFallback className="text-xs">
+                            <AvatarFallback className="bg-primary/10 text-primary font-medium">
                               {friend.realName
                                 .split(" ")
                                 .map((n) => n[0])
@@ -160,14 +175,14 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
                             </AvatarFallback>
                           </Avatar>
                           {isUserOnline(friend.id) && (
-                            <div className="absolute bottom-0 right-0 h-2 w-2 bg-green-500 rounded-full border border-background" />
+                            <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate text-sm">{friend.realName}</h3>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <h3 className="font-semibold truncate text-base">{friend.realName}</h3>
+                          <p className="text-sm text-muted-foreground truncate">
                             {isUserOnline(friend.id) ? (
-                              <span className="text-green-600">Online</span>
+                              <span className="text-green-600 font-medium">Online</span>
                             ) : friend.lastSeen ? (
                               <span>Last seen {formatLastSeen(friend.lastSeen)}</span>
                             ) : (
@@ -178,8 +193,12 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0">
-                            <Icons.settings className="h-3 w-3" />
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Icons.settings className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -189,7 +208,7 @@ export function FriendsList({ onFriendSelect, selectedFriendId }: FriendsListPro
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleRemoveFriend(friend.id)}
-                            className="text-red-600"
+                            className="text-red-600 focus:text-red-600"
                           >
                             <Icons.logout className="h-4 w-4 mr-2" />
                             Remove Friend

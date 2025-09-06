@@ -80,37 +80,47 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Icons.user className="h-4 w-4 mr-2" />
+        <Button variant="outline" size="sm" className="bg-primary/5 border-primary/20 text-primary hover:bg-primary/10">
+          <Icons.userPlus className="h-4 w-4 mr-2" />
           Add Friend
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Icons.userPlus className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+              <Icons.userPlus className="h-4 w-4 text-white" />
+            </div>
             Find Friends
           </DialogTitle>
         </DialogHeader>
         
         <div className="flex flex-col gap-4 flex-1 min-h-0">
           {/* Search Input */}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <div className="relative flex-1">
               <Icons.search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Enter friend's email"
+                placeholder="Enter friend's email address"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-10"
+                className="pl-10 h-11 border-2 focus:border-primary/50"
               />
             </div>
-            <Button onClick={handleSearch} disabled={isLoading} size="default">
+            <Button 
+              onClick={handleSearch} 
+              disabled={isLoading || !searchQuery.trim()} 
+              size="default"
+              className="h-11 px-6 bg-primary hover:bg-primary/90"
+            >
               {isLoading ? (
                 <Icons.spinner className="h-4 w-4 animate-spin" />
               ) : (
-                "Search"
+                <>
+                  <Icons.search className="h-4 w-4 mr-2" />
+                  Search
+                </>
               )}
             </Button>
           </div>
@@ -119,17 +129,17 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full max-h-[400px]">
               {searchResults.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <Icons.users className="h-8 w-8 text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center mb-6">
+                    <Icons.users className="h-10 w-10 text-purple-600" />
                   </div>
-                  <h3 className="font-medium text-lg mb-2">
+                  <h3 className="font-semibold text-xl mb-3">
                     {searchQuery ? "No users found" : "Find new friends"}
                   </h3>
-                  <p className="text-muted-foreground text-sm max-w-sm">
+                  <p className="text-muted-foreground text-sm max-w-sm leading-relaxed">
                     {searchQuery 
-                      ? "We couldn't find anyone with that email" 
-                      : "Search for users by their email to send a friend request"
+                      ? "We couldn't find anyone with that email address. Make sure the email is correct and the user has an account." 
+                      : "Search for users by their email address to send a friend request and start chatting."
                     }
                   </p>
                 </div>
@@ -138,12 +148,12 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                   {searchResults.map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      className="group flex items-center gap-4 p-5 rounded-xl border border-border/50 bg-card hover:bg-accent/30 hover:border-primary/20 transition-all duration-200 hover:shadow-sm"
                     >
                       <div className="relative flex-shrink-0">
-                        <Avatar className="h-12 w-12">
+                        <Avatar className="h-14 w-14 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
                           <AvatarImage src={user.profileImageUrl} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
                             {user.realName
                               ?.split(" ")
                               .map((n) => n[0])
@@ -152,16 +162,16 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                           </AvatarFallback>
                         </Avatar>
                         {user.isOnline && (
-                          <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background" />
+                          <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-green-500 rounded-full border-2 border-background shadow-sm" />
                         )}
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-base truncate">{user.realName}</h4>
-                        <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
+                        <h4 className="font-semibold text-lg truncate mb-1">{user.realName}</h4>
+                        <p className="text-sm text-muted-foreground truncate mb-2">@{user.username}</p>
                         {user.isOnline && (
-                          <Badge variant="secondary" className="mt-1 text-xs">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-green-200">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5" />
                             Online
                           </Badge>
                         )}
@@ -171,21 +181,22 @@ export function FriendSearch({ onFriendAdded }: FriendSearchProps) {
                         size="sm"
                         onClick={() => handleSendFriendRequest(user.id)}
                         disabled={user.isFriend || user.friendRequestStatus === 'pending' || pendingRequests.has(user.id)}
-                        className="flex-shrink-0"
+                        className="flex-shrink-0 h-9 px-4"
+                        variant={user.isFriend ? "secondary" : "default"}
                       >
                         {user.isFriend ? (
                           <>
-                            <Icons.check className="h-4 w-4 mr-1" />
+                            <Icons.check className="h-4 w-4 mr-2" />
                             Friends
                           </>
                         ) : user.friendRequestStatus === 'pending' || pendingRequests.has(user.id) ? (
                           <>
-                            <Icons.refresh className="h-4 w-4 mr-1" />
+                            <Icons.refresh className="h-4 w-4 mr-2" />
                             Requested
                           </>
                         ) : (
                           <>
-                            <Icons.userPlus className="h-4 w-4 mr-1" />
+                            <Icons.userPlus className="h-4 w-4 mr-2" />
                             Add Friend
                           </>
                         )}

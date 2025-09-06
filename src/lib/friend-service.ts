@@ -129,27 +129,72 @@ export class FriendService {
   // Find a single user by exact email
   static async findUserByEmail(email: string, currentUserId: string): Promise<SearchResult[]> {
     try {
-      // Find profile by email
+      console.log('Searching for user with email:', email, 'Current user:', currentUserId)
+      
+      // Normalize email to lowercase for consistent comparison
+      const normalizedEmail = email.toLowerCase().trim()
+      
+      // Find profile by email - try both exact match and case-insensitive
       const q = query(
         collection(db, 'users'),
-        where('email', '==', email),
+        where('email', '==', normalizedEmail),
         limit(1)
       )
 
       const snapshot = await getDocs(q)
+      console.log('Query snapshot size:', snapshot.size)
       
       if (snapshot.empty) {
+        console.log('No user found with email:', normalizedEmail)
+        // Try case-insensitive search as fallback
+        const allUsersQuery = query(collection(db, 'users'))
+        const allUsersSnapshot = await getDocs(allUsersQuery)
+        
+        console.log('Total users in database:', allUsersSnapshot.size)
+        
+        // Search through all users for case-insensitive email match
+        for (const docSnapshot of allUsersSnapshot.docs) {
+          const userData = docSnapshot.data()
+          const userEmail = userData.email?.toLowerCase()?.trim()
+          
+          if (userEmail === normalizedEmail) {
+            console.log('Found user with case-insensitive search:', userData)
+            const targetUserId = docSnapshot.id
+            
+            if (targetUserId === currentUserId) {
+              console.log('User is searching for themselves, skipping')
+              return []
+            }
+            
+            return await this.buildSearchResult(userData, targetUserId, currentUserId)
+          }
+        }
+        
+        console.log('No user found even with case-insensitive search')
         return []
       }
 
       const docSnapshot = snapshot.docs[0]
       const userData = docSnapshot.data()
       const targetUserId = docSnapshot.id
+      
+      console.log('Found user:', userData, 'Target user ID:', targetUserId)
 
       if (targetUserId === currentUserId) {
+        console.log('User is searching for themselves, skipping')
         return []
       }
 
+      return await this.buildSearchResult(userData, targetUserId, currentUserId)
+    } catch (error) {
+      console.error('Error finding user by email:', error)
+      return []
+    }
+  }
+
+  // Helper method to build search result
+  private static async buildSearchResult(userData: any, targetUserId: string, currentUserId: string): Promise<SearchResult[]> {
+    try {
       // Determine friendship status
       const friendsQuery1 = query(
         collection(db, 'friendships'),
@@ -194,9 +239,9 @@ export class FriendService {
 
       const result: SearchResult = {
         id: targetUserId,
-        username: userData.username,
-        realName: userData.realName,
-        email: userData.email,
+        username: userData.username || userData.userId || 'unknown',
+        realName: userData.realName || userData.name || 'Unknown User',
+        email: userData.email || '',
         profileImageUrl: userData.profileImageUrl,
         isOnline: userData.isOnline || false,
         lastSeen: userData.lastSeen?.toDate?.()?.toISOString() || '',
@@ -204,9 +249,10 @@ export class FriendService {
         friendRequestStatus,
       }
 
+      console.log('Built search result:', result)
       return [result]
     } catch (error) {
-      console.error('Error finding user by email:', error)
+      console.error('Error building search result:', error)
       return []
     }
   }

@@ -119,7 +119,7 @@ export function ChatLayout() {
           <div className="flex-1 flex flex-col">
             {/* Mobile header with back button */}
             {selectedChatData && selectedChatData.otherUser && (
-              <div className="flex items-center gap-3 p-4 border-b bg-card">
+              <div className="flex items-center gap-3 p-4 border-b bg-card shadow-sm">
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -127,21 +127,21 @@ export function ChatLayout() {
                     setSidebarOpen(true)
                     setSelectedChat(null)
                   }}
-                  className="p-2"
+                  className="p-2 hover:bg-accent rounded-lg"
                 >
                   <Icons.arrowLeft className="h-5 w-5" />
                 </Button>
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-10 w-10 ring-2 ring-transparent">
                   <AvatarImage src={selectedChatData.otherUser.profileImageUrl} />
-                  <AvatarFallback className="text-xs">
+                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
                     {selectedChatData.otherUser.realName?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm truncate">
+                  <h3 className="font-semibold text-base truncate">
                     {selectedChatData.otherUser.realName}
                   </h3>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-sm text-muted-foreground truncate">
                     @{selectedChatData.otherUser.username}
                   </p>
                 </div>
@@ -154,19 +154,21 @@ export function ChatLayout() {
                 otherUser={selectedChatData.otherUser}
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center p-4">
+              <div className="flex-1 flex items-center justify-center p-6">
                 <div className="text-center max-w-sm">
-                  <Icons.messageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-                  <p className="text-muted-foreground mb-6 text-sm">
-                    Choose a chat from the sidebar or start a new conversation
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center mx-auto mb-6">
+                    <Icons.messageSquare className="h-10 w-10 text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">Select a conversation</h3>
+                  <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
+                    Choose a chat from the sidebar or start a new conversation with your friends
                   </p>
                   <Button 
                     onClick={() => setSidebarOpen(true)}
-                    className="w-full"
+                    className="w-full h-12 text-base"
                     size="lg"
                   >
-                    <Icons.messageSquare className="h-4 w-4 mr-2" />
+                    <Icons.messageSquare className="h-5 w-5 mr-2" />
                     View Chats
                   </Button>
                 </div>
@@ -199,13 +201,33 @@ export function ChatLayout() {
             otherUser={selectedChatData.otherUser}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Icons.messageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-              <p className="text-muted-foreground">
-                Choose a chat from the sidebar or start a new conversation
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-md">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center mx-auto mb-8">
+                <Icons.messageSquare className="h-12 w-12 text-purple-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Welcome to Fellowz</h3>
+              <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                Choose a chat from the sidebar or start a new conversation with your friends
               </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button 
+                  onClick={() => setSidebarOpen(true)}
+                  className="h-12 px-8"
+                  size="lg"
+                >
+                  <Icons.messageSquare className="h-5 w-5 mr-2" />
+                  View Chats
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="h-12 px-8"
+                  size="lg"
+                >
+                  <Icons.users className="h-5 w-5 mr-2" />
+                  Find Friends
+                </Button>
+              </div>
             </div>
           </div>
         )}
