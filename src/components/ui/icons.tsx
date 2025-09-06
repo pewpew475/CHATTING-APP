@@ -31,7 +31,8 @@ import {
   Smartphone,
   Copy,
   Wifi,
-  Eye
+  Eye,
+  ArrowLeft
 } from "lucide-react"
 
 export const Icons = {
@@ -67,5 +68,6 @@ export const Icons = {
   smartphone: Smartphone,
   copy: Copy,
   wifi: Wifi,
-  eye: Eye
+  eye: Eye,
+  arrowLeft: ArrowLeft
 }

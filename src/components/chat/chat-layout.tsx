@@ -80,8 +80,8 @@ export function ChatLayout() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-        <Icons.spinner className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Icons.spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -117,40 +117,59 @@ export function ChatLayout() {
           />
         ) : (
           <div className="flex-1 flex flex-col">
+            {/* Mobile header with back button */}
+            {selectedChatData && selectedChatData.otherUser && (
+              <div className="flex items-center gap-3 p-4 border-b bg-card">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setSidebarOpen(true)
+                    setSelectedChat(null)
+                  }}
+                  className="p-2"
+                >
+                  <Icons.arrowLeft className="h-5 w-5" />
+                </Button>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={selectedChatData.otherUser.profileImageUrl} />
+                  <AvatarFallback className="text-xs">
+                    {selectedChatData.otherUser.realName?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm truncate">
+                    {selectedChatData.otherUser.realName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground truncate">
+                    @{selectedChatData.otherUser.username}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {selectedChatData && selectedChatData.otherUser ? (
               <ChatArea 
                 chatId={selectedChatData.id} 
                 otherUser={selectedChatData.otherUser}
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <Icons.messageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="text-center max-w-sm">
+                  <Icons.messageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-muted-foreground mb-6 text-sm">
                     Choose a chat from the sidebar or start a new conversation
                   </p>
-                  <Button onClick={() => setSidebarOpen(true)}>
+                  <Button 
+                    onClick={() => setSidebarOpen(true)}
+                    className="w-full"
+                    size="lg"
+                  >
                     <Icons.messageSquare className="h-4 w-4 mr-2" />
                     View Chats
                   </Button>
                 </div>
-              </div>
-            )}
-            {/* Mobile back button */}
-            {selectedChatData && (
-              <div className="p-4 border-t bg-card">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    setSidebarOpen(true)
-                    setSelectedChat(null)
-                  }}
-                >
-                  <Icons.messageSquare className="h-4 w-4 mr-2" />
-                  Back to Chats
-                </Button>
               </div>
             )}
           </div>

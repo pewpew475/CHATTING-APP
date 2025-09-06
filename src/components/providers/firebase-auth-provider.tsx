@@ -41,6 +41,8 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
         const result = await getRedirectResult(auth)
         if (result) {
           console.log('Redirect authentication successful:', result.user?.email)
+          // Force a page reload to ensure proper state update
+          window.location.reload()
         }
       } catch (error) {
         console.error('Error handling redirect result:', error)
@@ -143,27 +145,10 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       const provider = new GoogleAuthProvider()
       
-      // Try popup first, fallback to redirect if popup fails
-      try {
-        console.log('Attempting popup authentication')
-        const result = await signInWithPopup(auth, provider)
-        console.log('Popup authentication successful:', result.user.email)
-        return { success: true }
-      } catch (popupError: any) {
-        console.log('Popup failed, trying redirect:', popupError.message)
-        
-        // If popup fails (e.g., blocked by browser), use redirect
-        if (popupError.code === 'auth/popup-blocked' || 
-            popupError.code === 'auth/popup-closed-by-user' ||
-            popupError.message.includes('popup')) {
-          console.log('Using redirect authentication for reliable cross-browser compatibility')
-          await signInWithRedirect(auth, provider)
-          return { success: true }
-        }
-        
-        // Re-throw other errors
-        throw popupError
-      }
+      // Always use redirect for better reliability across browsers
+      console.log('Using redirect authentication for reliable cross-browser compatibility')
+      await signInWithRedirect(auth, provider)
+      return { success: true }
     } catch (error: any) {
       console.error('Google sign in error:', error)
       return { 
